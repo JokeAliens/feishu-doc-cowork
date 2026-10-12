@@ -7,24 +7,6 @@ import pytest
 from feishu_doc_mcp.scopes import REQUIRED_SCOPES
 from feishu_doc_mcp.tools.environment import check_environment
 
-FAKE_BIN = os.path.join(os.path.dirname(__file__), "fake_lark_cli.py")
-
-
-@pytest.fixture()
-def fake_cli(tmp_path, monkeypatch):
-    log_path = tmp_path / "calls.jsonl"
-    responses_path = tmp_path / "responses.json"
-    monkeypatch.setenv("LARK_CLI_BIN", sys.executable)
-    monkeypatch.setenv("LARK_CLI_BIN_ARGS", FAKE_BIN)
-    monkeypatch.setenv("FAKE_LARK_LOG", str(log_path))
-    monkeypatch.setenv("FAKE_LARK_RESPONSES", str(responses_path))
-
-    def set_rules(rules):
-        responses_path.write_text(json.dumps(rules, ensure_ascii=False), encoding="utf-8")
-
-    return set_rules
-
-
 def _status_rule(user_status):
     return {
         "argv_contains": ["auth", "status"],
@@ -46,7 +28,7 @@ def _check_rule(granted, missing):
 
 
 def test_all_ready_no_missing(fake_cli):
-    set_rules = fake_cli
+    set_rules, _ = fake_cli
     set_rules([_status_rule("ready"), _check_rule(REQUIRED_SCOPES, None)])
     r = check_environment()
     assert r["logged_in"] is True
@@ -55,7 +37,7 @@ def test_all_ready_no_missing(fake_cli):
 
 
 def test_missing_scopes_builds_precise_login_command(fake_cli):
-    set_rules = fake_cli
+    set_rules, _ = fake_cli
     missing = ["docx:document", "docs:document.comment:read"]
     granted = [s for s in REQUIRED_SCOPES if s not in missing]
     set_rules([_status_rule("ready"), _check_rule(granted, missing)])
@@ -72,7 +54,7 @@ def test_missing_scopes_builds_precise_login_command(fake_cli):
 
 
 def test_not_logged_in(fake_cli):
-    set_rules = fake_cli
+    set_rules, _ = fake_cli
     set_rules([_status_rule("missing")])
     r = check_environment()
     assert r["logged_in"] is False

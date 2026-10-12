@@ -7,8 +7,6 @@ import pytest
 from feishu_doc_mcp.block_map import parse_fetch_output
 from feishu_doc_mcp.tools.read_doc import read_document
 
-FAKE_BIN = os.path.join(os.path.dirname(__file__), "fake_lark_cli.py")
-
 # Canned +fetch --detail with-ids payload: two marker styles.
 CANNED_MD = "\n".join([
     "# 项目方案 <!-- block_id: blk001 -->",
@@ -59,26 +57,6 @@ def test_parse_extracts_revision_id():
 def test_parse_rejects_payload_without_content():
     with pytest.raises(ValueError):
         parse_fetch_output({"revision_id": 1})
-
-
-@pytest.fixture()
-def fake_cli(tmp_path, monkeypatch):
-    log_path = tmp_path / "calls.jsonl"
-    responses_path = tmp_path / "responses.json"
-    monkeypatch.setenv("LARK_CLI_BIN", sys.executable)
-    monkeypatch.setenv("LARK_CLI_BIN_ARGS", FAKE_BIN)
-    monkeypatch.setenv("FAKE_LARK_LOG", str(log_path))
-    monkeypatch.setenv("FAKE_LARK_RESPONSES", str(responses_path))
-
-    def set_rules(rules):
-        responses_path.write_text(json.dumps(rules, ensure_ascii=False), encoding="utf-8")
-
-    def calls():
-        if not log_path.exists():
-            return []
-        return [json.loads(line)["argv"] for line in log_path.read_text().splitlines()]
-
-    return set_rules, calls
 
 
 def test_read_document_invokes_fetch_with_ids(fake_cli):
