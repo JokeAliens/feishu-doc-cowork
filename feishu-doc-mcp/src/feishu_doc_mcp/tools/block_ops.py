@@ -2,6 +2,13 @@
 
 Every write goes through lark-cli with --dry-run preview first. No code path
 may issue a full-document overwrite/append; validate_operations enforces it.
+
+Revision strategy (final-review ruling): `+update --revision-id` semantics
+are unproven (strict CAS vs informational). We therefore (a) check the
+latest revision once before the batch (fail fast on CONFLICT), and (b) chain
+the revision returned by each write into the next write's --revision-id;
+when a write response carries no revision we pass -1 (= latest) so a strict
+CAS cannot reject a mid-batch write on a stale id.
 """
 
 import json
@@ -14,16 +21,12 @@ from ..errors import LarkApiError
 
 log = logging.getLogger(__name__)
 
-_DOC_UPDATE_CMDS = {"str_replace", "block_replace", "block_insert_after",
-                    "block_delete", "block_move_after"}
-
 _ALLOWED_OPS = {
     "update_text", "replace_block", "insert_blocks", "delete_blocks",
     "move_blocks", "update_table_cells", "table_insert_rows",
     "table_insert_columns", "table_delete_rows", "table_delete_columns",
     "update_board",
 }
-_FORBIDDEN_TOKENS = ("overwrite", "append")
 
 _REVISION_KEYS = ("revision_id", "revision")
 
@@ -40,28 +43,55 @@ class ConflictError(LarkApiError):
         self.actual = actual
 
 
+class PartialApplyError(LarkApiError):
+    """A write failed mid-batch; earlier ops are already live in the doc."""
+
+    def __init__(self, applied, failed_unit, cause):
+        self.applied = list(applied)
+        super().__init__(
+            code=cause.code,
+            message=(f"批内部分失败：已应用 {len(self.applied)} 项"
+                     f"（{', '.join(self.applied) or '无'}），"
+                     f"失败于 {failed_unit}：{cause.message}"),
+            hint=cause.hint, lark_code=cause.lark_code,
+        )
+
+
+def _to_int_or_none(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_revision(data):
+    if isinstance(data, dict):
+        for key in _REVISION_KEYS:
+            rev = _to_int_or_none(data.get(key))
+            if rev is not None:
+                return rev
+    return None
+
+
 def _current_revision(doc_id):
     data = unwrap(run_lark_cli([
         "docs", "+fetch", "--doc", doc_id,
         "--doc-format", "markdown", "--detail", "simple",
         "--scope", "outline", "--max-depth", "1",
     ]))
-    for key in _REVISION_KEYS:
-        if isinstance(data, dict) and data.get(key) is not None:
-            return data[key]
-    raise LarkApiError(code="revision_unavailable",
-                       message="无法从 +fetch 响应获取 revision_id")
+    rev = _extract_revision(data)
+    if rev is None:
+        raise LarkApiError(code="revision_unavailable",
+                           message="无法从 +fetch 响应获取 revision_id")
+    return rev
 
 
 def validate_operations(operations):
-    """Reject unknown ops and any full-overwrite semantics before any I/O."""
+    """Reject unknown/forbidden op types before any I/O (red line, SPEC §5.6)."""
     for op in operations:
         op_type = op.get("type", "")
         if op_type not in _ALLOWED_OPS:
             raise ValueError(f"unsupported or forbidden op type: {op_type!r}")
-        for token in _FORBIDDEN_TOKENS:
-            if token in op_type:
-                raise ValueError(f"full-overwrite op forbidden: {op_type!r}")
 
 
 def _expand(operations):
@@ -84,40 +114,47 @@ def _expand(operations):
     return units
 
 
-def _update_argv(doc_id, command, op, revision_id):
-    argv = ["docs", "+update", "--doc", doc_id, "--command", command]
+def _target_argv(argv, op):
     if op.get("block_id"):
-        argv += ["--block-id", op["block_id"]]
-    else:
-        argv += ["--start-block-id", op["start_block_id"],
-                 "--end-block-id", op["end_block_id"]]
-    return argv
+        return argv + ["--block-id", op["block_id"]]
+    return argv + ["--start-block-id", op["start_block_id"],
+                   "--end-block-id", op["end_block_id"]]
+
+
+def _update(doc_id, command, revision_id):
+    return ["docs", "+update", "--doc", doc_id, "--command", command,
+            "--revision-id", str(revision_id)]
+
+
+def _unit_label(unit):
+    kind, op = unit
+    return op.get("block_id") or op.get("table_block_id") \
+        or op.get("whiteboard_token") or kind
 
 
 def _unit_argv(doc_id, unit, revision_id, tmp_dir):
     """Translate one write unit to a lark-cli argv."""
     kind, op = unit
     if kind == "update_text":
-        argv = _update_argv(doc_id, "str_replace", op, revision_id)
-        return argv + ["--pattern", op["old_text"], "--content", op["new_text"],
-                       "--revision-id", str(revision_id)]
+        return _target_argv(_update(doc_id, "str_replace", revision_id), op) + [
+            "--pattern", op["old_text"], "--content", op["new_text"]]
     if kind == "replace_block":
-        argv = _update_argv(doc_id, "block_replace", op, revision_id)
-        return argv + ["--content", op["content_xml"], "--doc-format", "xml"]
+        return _target_argv(_update(doc_id, "block_replace", revision_id), op) + [
+            "--content", op["content_xml"], "--doc-format", "xml"]
     if kind == "insert_blocks":
-        return ["docs", "+update", "--doc", doc_id, "--command", "block_insert_after",
-                "--block-id", op["after_block_id"],
-                "--content", op["content_xml"], "--doc-format", "xml"]
+        return _update(doc_id, "block_insert_after", revision_id) + [
+            "--block-id", op["after_block_id"],
+            "--content", op["content_xml"], "--doc-format", "xml"]
     if kind == "delete_blocks":
-        return _update_argv(doc_id, "block_delete", op, revision_id)
+        return _target_argv(_update(doc_id, "block_delete", revision_id), op)
     if kind == "move_blocks":
-        return ["docs", "+update", "--doc", doc_id, "--command", "block_move_after",
-                "--block-id", op["block_id"],
-                "--src-block-ids", ",".join(op["src_block_ids"])]
+        return _update(doc_id, "block_move_after", revision_id) + [
+            "--block-id", op["block_id"],
+            "--src-block-ids", ",".join(op["src_block_ids"])]
     if kind == "update_text_cell":
-        return ["docs", "+update", "--doc", doc_id, "--command", "block_replace",
-                "--block-id", op["block_id"],
-                "--content", op["content_xml"], "--doc-format", "xml"]
+        return _update(doc_id, "block_replace", revision_id) + [
+            "--block-id", op["block_id"],
+            "--content", op["content_xml"], "--doc-format", "xml"]
     if kind in ("table_insert_rows", "table_insert_columns",
                 "table_delete_rows", "table_delete_columns"):
         field, body = _table_patch_body(kind, op)
@@ -149,32 +186,35 @@ def apply_block_operations(doc_id, operations, expected_revision_id):
     """Apply block-level ops serially; conflict-checked, dry-run-previewed.
 
     Returns {"results": [...], "revision_id": int}.
+    Raises ConflictError before any write; PartialApplyError if a write
+    fails mid-batch (earlier ops already applied — see .applied).
     """
     validate_operations(operations)
     units = _expand(operations)
 
     actual = _current_revision(doc_id)
-    if actual != expected_revision_id:
+    if actual != _to_int_or_none(expected_revision_id):
         raise ConflictError(expected_revision_id, actual)
 
     results = []
-    write_count = 0
+    applied = []
+    cur_rev = actual
     with tempfile.TemporaryDirectory() as tmp_dir:
         for unit in units:
             kind, op = unit
-            argv = _unit_argv(doc_id, unit, expected_revision_id, tmp_dir)
+            argv = _unit_argv(doc_id, unit, cur_rev, tmp_dir)
             preview = run_lark_cli(argv, dry_run=True)
             log.debug("dry-run for %s: %s", kind, json.dumps(preview, ensure_ascii=False))
             try:
-                unwrap(run_lark_cli(argv))
-                write_count += 1
+                data = unwrap(run_lark_cli(argv))
             except LarkApiError as e:
                 if kind == "update_board":
                     results.append({"op": kind, "status": "BOARD_UNSUPPORTED",
                                     "message": e.message, "hint": e.hint})
                     continue
-                raise
-            assert write_count <= len(units), "write request count exceeded plan units"
+                raise PartialApplyError(applied, _unit_label(unit), e) from e
+            cur_rev = _extract_revision(data) if _extract_revision(data) is not None else -1
+            applied.append(_unit_label(unit))
             results.append({"op": kind, "status": "ok",
                             "block_id": op.get("block_id") or op.get("table_block_id")})
     return {"results": results, "revision_id": _current_revision(doc_id)}

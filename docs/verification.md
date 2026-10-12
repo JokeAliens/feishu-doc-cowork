@@ -9,7 +9,7 @@
 | 用例 | 状态 | 证据 |
 | --- | --- | --- |
 | U1 URL 解析：docx URL/裸 token/wiki/旧 doc 报错 | ✅ [stub] | `tests/test_url_parse.py` 5 例；wiki 解包 `tests/test_doc_info.py::test_wiki_url_unwrapped_via_inspect` |
-| U2 read_document 可逆寻址 | ✅ [stub] ⬜ [live 校准记号格式] | `tests/test_read_doc.py::test_parse_builds_reversible_block_map`（10 块抽样反查）；真实 with-ids 记号格式待联调校准 `BLOCK_ID_PATTERNS` |
+| U2 read_document 可逆寻址 | 部分 ✅ [stub] ⬜ [live 校准记号格式] | `tests/test_read_doc.py::test_parse_builds_reversible_block_map`（10 块抽样反查）；**能力边界**：block_type/parent_id/child_index 当前恒 None（markdown with-ids 是否含层级待联调确认），仅保证行↔block_id 可逆；真实记号格式待联调校准 `BLOCK_ID_PATTERNS`（解析失败会抛 `block_map_unresolved` 而非静默退化） |
 | U3 最小修改（1 句 → 1 个写请求，无全量写） | ✅ [stub] | `tests/test_block_ops.py::test_update_text_single_write_no_overwrite` |
 | U4 非 owner 评论不进入处理 | ⬜ [live]（过滤逻辑在 SKILL.md 主循环 3a，unit 不可测） | 联调：他人账号评论 → state.json 无记录、无回复 |
 | U5 意图判定准确率（5 修改/3 提问/2 超范围） | ⬜ [live] | 联调样本表 + 人工确认 |

@@ -38,7 +38,7 @@ block_map 行号指向**剥离记号后的** markdown（1 基），可逆寻址�
 
 ### `apply_block_operations(doc_id: str, operations: list, expected_revision_id: int) -> dict`
 
-执行前比对最新 revision，不一致返回 `CONFLICT` 错误且不产生任何写请求。出参：`{results: [{op, status, ...}], revision_id}`。
+执行前比对最新 revision，不一致返回 `CONFLICT` 错误且不产生任何写请求。批内每个写请求携带 `--revision-id`，并链式更新为上一个写响应返回的新 revision（响应无 revision 时传 `-1`=latest，避免严格 CAS 下批内 stale id 被拒绝）。批内中途失败抛 `PartialApplyError`（error.code 透传原因，`message` 含「已应用前 N 项」列表）——调用方必须在失败回复中如实列出。出参：`{results: [{op, status, ...}], revision_id}`。
 
 | op.type | 必填字段 | 通道 |
 | --- | --- | --- |

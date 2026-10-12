@@ -7,6 +7,8 @@ when it is, adjust these patterns and the test fixture only.
 
 import re
 
+from .errors import LarkApiError
+
 BLOCK_ID_PATTERNS = [
     # trailing HTML-comment marker:  some text <!-- block_id: blk001 -->
     re.compile(r"\s*<!--\s*block_id:\s*(?P<id>[A-Za-z0-9_-]+)\s*-->\s*$"),
@@ -33,10 +35,12 @@ def parse_fetch_output(data):
     """
     if not isinstance(data, dict):
         raise ValueError("fetch payload is not an object")
-    content = next((data[k] for k in _CONTENT_KEYS if data.get(k)), None)
+    content = next((data[k] for k in _CONTENT_KEYS if data.get(k) is not None), None)
     if content is None:
         raise ValueError(f"fetch payload lacks content keys {_CONTENT_KEYS}")
     revision = next((data[k] for k in _REVISION_KEYS if data.get(k) is not None), None)
+    if revision is None:
+        raise ValueError(f"fetch payload lacks revision keys {_REVISION_KEYS}")
 
     clean_lines = []
     block_map = []
@@ -58,6 +62,13 @@ def parse_fetch_output(data):
                 "parent_id": None,
                 "child_index": None,
             })
+    if content.strip() and not block_map:
+        raise LarkApiError(
+            code="block_map_unresolved",
+            message=("文档内容非空但未解析出任何 block 记号——BLOCK_ID_PATTERNS "
+                     "与真实 with-ids 格式不匹配，需校准。内容采样："
+                     + content.strip()[:200]),
+        )
     return {
         "markdown": "\n".join(clean_lines),
         "block_map": block_map,

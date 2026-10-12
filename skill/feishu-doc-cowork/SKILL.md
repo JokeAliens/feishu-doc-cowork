@@ -49,16 +49,19 @@ description: 当用户要求对指定飞书文档做「评论驱动的 AI 协同
    c. 快照：read_document → 保存 doc_before（记录 revision_id）
    d. 规划：基于 markdown + block_map 生成块级最小 operations
    e. apply_block_operations(doc_id, operations, expected_revision_id)
-      - CONFLICT → 重新 read_document + 重新规划，上限 3 次；仍失败走 j
+      - CONFLICT → 重新 read_document + 重新规划，上限 3 次；仍失败走 k
    f. 验证：再次 read_document → doc_after，确认目标改动生效
-   g. git：更新 document.md / block_map.json / state.json；
-      has_doc_diff 为 false（空改动）→ 不 commit，回复「内容已符合要求，无需修改」，upsert done，下一条；
-      否则 commit_comment（恰好一个 commit，message 模板见下）
-   h. reply_comment("修改完成，使用AI模型：{model_name}， Agent：{agent_name}")
-   i. upsert done（含 commit_sha、summary）
-   j. 任何异常 → upsert failed（含原因），回复失败格式（见下），继续下一条
+   g. state upsert done（summary、error=null；commit_sha 暂留空）→ 落盘
+   h. git：更新 document.md / block_map.json；
+      has_doc_diff 为 false（空改动）→ 不 commit，回复「内容已符合要求，无需修改」，下一条；
+      否则 commit_comment（恰好一个 commit，message 模板见下；git add -A 会把 g 的 state.json 一并纳入本评论的 commit）
+   i. commit 后 upsert commit_sha
+   j. reply_comment("修改完成，使用AI模型：{model_name}， Agent：{agent_name}")
+   k. 任何异常 → upsert failed（含原因；若 apply_block_operations 抛 PartialApplyError，失败回复必须列出其 applied 列表——「已应用前 N 项（块 x,y），失败于块 z」），回复失败格式（见下），继续下一条
 5. 回到 1
 ```
+
+> **commit_sha 自引用裁定**：一条评论的 commit 不可能包含自己的 sha。顺序定为「先 upsert done（无 sha）→ commit → 补 sha」；补 sha 的尾随 state.json 变更随下一个 commit 归档（或会话退出时）。审计以 git log 为准，state.json 的 sha 字段仅为索引便利。failed/skipped 的 state 变更同理。
 
 回复格式（逐字，注意中文逗号与空格）：
 
