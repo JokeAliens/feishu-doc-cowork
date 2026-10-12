@@ -48,7 +48,7 @@ def test_update_text_single_write_no_overwrite(fake_cli):
     assert "str_replace" in argv and "blk002" in argv
     assert "--pattern" in argv and "旧句子" in argv
     assert "overwrite" not in argv and "append" not in argv
-    assert "--revision-id" in argv
+    assert any(a.startswith("--revision-id=") for a in argv)
     # dry-run preview happened before the real write
     dry = [c for c in calls() if "--dry-run" in c and "+update" in c]
     assert len(dry) == 1

@@ -124,8 +124,10 @@ def _target_argv(argv, op):
 
 
 def _update(doc_id, command, revision_id):
+    # glued form: a bare "-1" token can be misread as an option by argparse
+    # style parsers (delta review); --flag=value is unambiguous.
     return ["docs", "+update", "--doc", doc_id, "--command", command,
-            "--revision-id", str(revision_id)]
+            f"--revision-id={revision_id}"]
 
 
 def _unit_label(unit):

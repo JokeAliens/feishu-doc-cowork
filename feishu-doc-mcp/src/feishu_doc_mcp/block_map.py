@@ -117,9 +117,22 @@ class _Renderer:
         elif tag == "hr":
             self.emit("---", el, parent_id=parent_id, child_index=child_index)
         else:
-            # unknown block (readonly-block, callout, ...): raw passthrough
+            # unknown block (readonly-block, callout, ...): raw passthrough,
+            # ids stripped from the markdown line; id-bearing descendants stay
+            # addressable via block_map entries pointing at this line.
             raw = ET.tostring(el, encoding="unicode")
+            raw = re.sub(r'\sid="[^"]*"', "", raw)
             self.emit(raw, el, parent_id=parent_id, child_index=child_index)
+            self._collect_descendant_ids(el, len(self.lines), el.get("id"))
+
+    def _collect_descendant_ids(self, el, line, ancestor_id):
+        for child in el.iter():
+            if child is el:
+                continue
+            cid = child.get("id")
+            if cid:
+                self.block_map.append(_entry(line, child,
+                                             parent_id=ancestor_id))
 
     def render_list(self, list_el, parent_id=None, depth=0):
         marker = "-" if list_el.tag == "ul" else "1."
@@ -150,8 +163,9 @@ class _Renderer:
     def render_table(self, table_el, parent_id=None, child_index=None):
         table_id = table_el.get("id")
         first_line = len(self.lines) + 1
-        flat_index = 0
+        flat_index = 0  # documented: flat order over id-bearing cell blocks
         body = [c for c in table_el if c.tag in ("thead", "tbody")] or [table_el]
+        row_index = 0
         for section in body:
             for tr in section:
                 if tr.tag != "tr":
@@ -162,13 +176,16 @@ class _Renderer:
                     texts.append(_cell_text(cell))
                 self.lines.append("| " + " | ".join(texts) + " |")
                 row_line = len(self.lines)
-                for cell in cells:
+                for col_index, cell in enumerate(cells):
                     for child in cell:
                         if child.get("id"):
                             self.block_map.append(_entry(
                                 row_line, child, parent_id=table_id,
-                                child_index=flat_index))
+                                child_index=flat_index,
+                                extra={"row_index": row_index,
+                                       "col_index": col_index}))
                             flat_index += 1
+                row_index += 1
         if table_id:
             self.block_map.append(_entry(first_line, table_el,
                                          block_type="table",

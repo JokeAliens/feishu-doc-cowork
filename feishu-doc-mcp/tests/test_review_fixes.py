@@ -26,7 +26,7 @@ def test_revision_chained_across_batch(fake_cli):
     writes = [c for c in calls()
               if "+update" in c and "--dry-run" not in c and "+fetch" not in c]
     assert len(writes) == 2
-    rev_of = lambda argv: argv[argv.index("--revision-id") + 1]
+    rev_of = lambda argv: next(a.split("=", 1)[1] for a in argv if a.startswith("--revision-id="))
     assert rev_of(writes[0]) == "42"
     assert rev_of(writes[1]) == "43"  # chained from first write's response
 
@@ -40,7 +40,7 @@ def test_revision_id_on_all_update_commands(fake_cli):
     ], expected_revision_id=42)
     write = [c for c in calls()
              if "+update" in c and "--dry-run" not in c][0]
-    assert "--revision-id" in write
+    assert any(a.startswith("--revision-id=") for a in write)
 
 
 def test_revision_string_normalized_no_false_conflict(fake_cli):
