@@ -31,18 +31,24 @@ description: 当用户要求对指定飞书文档做「评论驱动的 AI 协同
 6. **本地备份（D17）**：`python scripts/backup.py {doc_dir} {doc_id} {title} {revision_id}` 生成 `backups/{ts}/` 快照 + 更新 `backups.json`（只保留最新 3 份，自动删最旧）→ git 提交一次：`backup: 启动本地快照 (doc: {title}, revision: {revision_id})`。
 7. 若仓库无任何 commit → 基线 commit：`init: 文档基线快照 (doc: {title})`（备份 commit 与基线 commit 可合并为一次 add，但 message 分行写清两件事；严格起见分两个 commit 亦可）。
 8. `python scripts/state.py {doc_dir} reset-processing`（崩溃恢复：processing → pending，重处理前必须重新 read_document + 重新规划，禁止复用旧 operations）。
-9. 进入主循环。
+9. **监听确认（强制，不得跳过）**：启动完成后、进入主循环前，必须向用户明确输出并确认：
+   > 启动完成：文档《{title}》（{doc_id}），基线 revision {n}，备份已存（保留 3 份）。
+   > 我将开始**常驻轮询监听**该文档的评论（每 {poll_interval_sec}s，仅处理你的评论，修改类评论会直接改文档并回复）。确认开始监听吗？
+
+   用户确认 → 进入主循环并启动 watcher；用户拒绝/要求调整 → 按用户指示，**不得**自行开始监听。若宿主不支持交互提问，则以显著消息声明上述内容后直接开始，并在首条回复中再次声明监听状态。
+10. 进入主循环。
 
 ## 主循环（永久，直到 SIGINT/SIGTERM）
 
+**实现方式（强制）**：后台运行 `python scripts/poll_comments.py {doc_id} {owner_id} {poll_interval_sec} {poll_jitter}` 作为 watcher——它发现候选评论后打印 JSON 并退出，你随即处理；**处理完必须立即重新启动 watcher**（watcher 退出 = 监听中断，属异常状态，需向用户声明）。watcher 运行期间向用户明确「监听中」，被停止（SIGINT/SIGTERM/用户要求）时打印会话统计并声明「监听已停止」。
+
 ```
-1. sleep(poll_interval_sec × (1 ± poll_jitter))          # 默认 10s ± 20%
-2. `cowork list-comments <doc_id>`（默认未解决）
-3. 过滤：
+1. watcher 发现候选评论（poll_comments.py 每 poll_interval ± jitter 轮询一次）
+2. 过滤（已在 poll_comments.py 内完成）：
    a. user_id == owner_id（非 owner 一律跳过）
    b. comment_id 不在 state.json，或 state.update_time < 评论当前 update_time
       （owner 编辑过已处理评论 → 视为新需求重新处理）
-4. 对每条候选评论，串行执行：
+3. 对每条候选评论，串行执行：
    a. state upsert processing（落盘）
    b. `cowork get-comment-thread` → 按 references/intent-prompt.md 判定：
       - EDIT_REQUEST → 继续
@@ -62,7 +68,7 @@ description: 当用户要求对指定飞书文档做「评论驱动的 AI 协同
       （自己的回复会 bump 评论 update_time；不刷新则下一轮 poll 误判 owner 编辑过而无限重处理——2026-10-12 实测确认）
       → 最后 `cowork resolve`（标记解决并隐藏，评论闭环；solved 评论不再进入轮询）
    k. 任何异常 → upsert failed（含原因；若 apply-ops 返回 PartialApplyError（error.code=底层原因、message 含已应用列表），失败回复必须列出其 applied 列表——「已应用前 N 项（块 x,y），失败于块 z」），回复失败格式（见下），继续下一条
-5. 回到 1
+4. 重新武装 watcher（见上方「实现方式」），回到 1
 ```
 
 > **commit_sha 自引用裁定**：一条评论的 commit 不可能包含自己的 sha。顺序定为「先 upsert done（无 sha）→ commit → 补 sha」；补 sha 的尾随 state.json 变更随下一个 commit 归档（或会话退出时）。审计以 git log 为准，state.json 的 sha 字段仅为索引便利。failed/skipped 的 state 变更同理。
