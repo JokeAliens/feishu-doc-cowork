@@ -45,7 +45,7 @@ lark-cli auth login \
 ### cowork（逻辑层 CLI）
 
 ```bash
-uv tool install "git+https://github.com/JokeAliens/feishu-doc-cowork@v1.0.0#subdirectory=core"
+uv tool install "git+https://github.com/JokeAliens/feishu-doc-cowork@v1.0.1#subdirectory=core"
 cowork check-environment      # 自检：登录状态 + scope 覆盖
 ```
 
@@ -57,9 +57,8 @@ cowork check-environment      # 自检：登录状态 + scope 覆盖
 npx skills add JokeAliens/feishu-doc-cowork        # 推荐：经 skills CLI 装入你的 agent
 # 或手动：把 skills/feishu-doc-cowork/ 拷入 agent skills 目录
 
-# 首次运行配置
+# 首次运行配置（生成默认 config.yaml；模型/Agent 署名由 agent 运行时自报，无需配置）
 python <skills目录>/feishu-doc-cowork/scripts/config_init.py
-# 编辑 ~/.cache/feishu-doc-cowork/config.yaml 里的 identity.model_name / agent_name
 ```
 
 ## 最小权限 scope 清单

@@ -107,15 +107,13 @@ runtime:
   poll_jitter: 0.2
   max_retry_per_comment: 3
   backoff_base_sec: 5                 # 429/5xx 指数退避基数，上限 120s
-identity:
-  model_name: "GLM5.3"                # 回复格式中的 AI 模型名
-  agent_name: "OMP"                   # 回复格式中的 Agent 名
 lark_cli:
   binary: "lark-cli"                  # PATH 中的 lark-cli
   identity: "user"                    # 固定 user 身份（--as user）
 ```
 
 **注意**：配置中**不出现** app_id/app_secret/任何 token——凭证完全由 lark-cli 管理（OS 钥匙串）。
+`identity.model_name` / `agent_name` 于 v1.0.1 移除：回复与 commit 署名由执行 skill 的 agent 在运行时**动态自报**（其真实模型标识与框架名），而非配置固定值。
 
 ### 4.2 最小权限 scope 清单
 

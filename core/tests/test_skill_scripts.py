@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPTS = Path(__file__).parents[2] / "skill" / "feishu-doc-cowork" / "scripts"
+SCRIPTS = Path(__file__).parents[2] / "skills" / "feishu-doc-cowork" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 import backup  # noqa: E402

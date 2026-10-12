@@ -14,9 +14,6 @@ runtime:
   poll_jitter: 0.2
   max_retry_per_comment: 3
   backoff_base_sec: 5                 # 429/5xx 指数退避基数，上限 120s
-identity:
-  model_name: "GLM5.3"                # 回复格式中的 AI 模型名
-  agent_name: "OMP"                   # 回复格式中的 Agent 名
 lark_cli:
   binary: "lark-cli"                  # PATH 中的 lark-cli
   identity: "user"                    # 固定 user 身份

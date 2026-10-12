@@ -45,7 +45,7 @@ lark-cli auth login \
 ### cowork (logic-layer CLI)
 
 ```bash
-uv tool install "git+https://github.com/JokeAliens/feishu-doc-cowork@v1.0.0#subdirectory=core"
+uv tool install "git+https://github.com/JokeAliens/feishu-doc-cowork@v1.0.1#subdirectory=core"
 cowork check-environment      # self-check: login status + scope coverage
 ```
 
@@ -57,9 +57,9 @@ Local development: `cd core && uv sync && uv run cowork ...`
 npx skills add JokeAliens/feishu-doc-cowork        # recommended: installs via the skills CLI
 # or manually: copy skills/feishu-doc-cowork/ into your agent's skills directory
 
-# First-run configuration
+# First-run configuration (writes default config.yaml; the model/agent
+# signature in replies is self-reported by the running agent — no config needed)
 python <skills-dir>/feishu-doc-cowork/scripts/config_init.py
-# then edit identity.model_name / agent_name in ~/.cache/feishu-doc-cowork/config.yaml
 ```
 
 ## Minimal scope set

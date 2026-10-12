@@ -20,7 +20,8 @@ description: 当用户要求对指定飞书文档做「评论驱动的 AI 协同
 
 ## 启动流程
 
-1. 读配置 `~/.cache/feishu-doc-cowork/config.yaml`；不存在 → 运行 `python scripts/config_init.py` 创建后请用户确认 `identity.model_name` / `agent_name`，再启动。配置非法 → 报错退出。
+1. 读配置 `~/.cache/feishu-doc-cowork/config.yaml`；不存在 → 运行 `python scripts/config_init.py` 创建（默认值即可用，无需手改）。配置非法 → 报错退出。
+   - **model_name / agent_name 不在配置中**：回复与 commit 署名由你（执行本 skill 的 agent）在处理时**动态自报**——model_name 取当前运行模型的真实标识（如 `kimi-code/k3`、`GLM5.3`），agent_name 取当前 agent 框架名（如 `OMP`）。禁止编造或沿用他人值；无法确认自己身份时向用户询问一次。
 2. `cowork check-environment`：
    - 未登录 → 输出引导（安装 lark-cli → `lark-cli auth login <精确 scope 清单>`，见 `references/scope-checklist.md`），退出等用户完成。
    - 缺 scope → 输出返回的 `suggested_login_command`（只含缺失项），退出。**不得**自行放宽 scope。
