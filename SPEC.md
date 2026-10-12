@@ -39,7 +39,7 @@
 | # | 决策点 | 裁定 | 理由 |
 | --- | --- | --- | --- |
 | D1 | API 执行层 | **lark-cli 三层命令体系**：Shortcuts（`+` 前缀）→ API Commands（1:1 端点）→ Raw API（`lark-cli api`，覆盖 2500+ 端点）。块级修改走 Raw API 层 PATCH | 官方维护、AI 友好、JSON 契约稳定；避免重复造轮子 |
-| D2 | MCP 定位 | Python + FastMCP 写**薄封装层** feishu-doc-mcp：把 lark-cli 调用包装成结构化 MCP 工具，统一解析 `{ok, data, error}` envelope | 保留 skill+mcp 架构，MCP 只做适配不做业务 |
+| D2 | ~~MCP~~ 逻辑层形态 | **v0.2 修订：去除 MCP**。逻辑层为 Python 包 + `cowork` CLI（子命令 = 原 MCP 工具 1:1），agent 经 shell 调用，JSON 契约不变。理由：宿主 agent 有 shell，联调全程未使用 MCP 协议层，MCP 仅增加部署复杂度 | 用户裁定 2026-10-12 |
 | D3 | 鉴权 | **lark-cli OAuth 用户身份**（`lark-cli auth login`），凭证存 OS 钥匙串（lark-cli 内建），DPoP 保持默认 `preferred` | 最小权限 + 不碰 app_secret；评论/修改以用户本人身份发出，天然可审计 |
 | D4 | 最小权限 | 逐个 scope 精确授权：`lark-cli auth login --scope "xxx"`，**禁用 `--recommend`**；启动时用 `lark-cli auth check` 校验；scope 清单用 `lark-cli schema <method>` 实测确认 | 用户明确要求权限尽量少 |
 | D5 | 评论监听 | 纯轮询评论 API，默认间隔 10s ± 20% 抖动 | 用户指定；抖动避免限流误判 |

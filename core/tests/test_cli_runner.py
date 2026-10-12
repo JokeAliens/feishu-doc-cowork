@@ -4,8 +4,8 @@ import sys
 
 import pytest
 
-from feishu_doc_mcp.cli_runner import run_lark_cli, unwrap
-from feishu_doc_mcp.errors import CliExecError, LarkApiError
+from cowork_core.cli_runner import run_lark_cli, unwrap
+from cowork_core.errors import CliExecError, LarkApiError
 
 def test_unwrap_ok_returns_data():
     assert unwrap({"ok": True, "data": {"a": 1}}) == {"a": 1}

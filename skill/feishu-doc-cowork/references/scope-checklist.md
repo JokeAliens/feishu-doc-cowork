@@ -1,6 +1,6 @@
 # 最小权限 scope 清单（SPEC §4.2，schema/auth 实测 2026-10-12）
 
-单一事实源：`feishu-doc-mcp/src/feishu_doc_mcp/scopes.py` 的 `REQUIRED_SCOPES`。
+单一事实源：`core/src/cowork_core/scopes.py` 的 `REQUIRED_SCOPES`。
 
 | # | scope | 覆盖能力 | 复核命令 |
 | --- | --- | --- | --- |
@@ -42,7 +42,7 @@ lark-cli auth status --json                                   # identities.user.
 lark-cli auth check --scope "<上表 9 项空格分隔>" --json        # missing 必须为 null
 ```
 
-或直接用 MCP `check_environment`，其 `suggested_login_command` 只含缺失 scope。
+或直接用 `cowork check-environment`，其 `suggested_login_command` 只含缺失 scope。
 
 ## 无超配验收（P4）
 

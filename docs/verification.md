@@ -19,7 +19,7 @@
 
 | 用例 | 状态 | 证据 |
 | --- | --- | --- |
-| P1 全程未用 --recommend/--domain | ✅（代码+文档静态保证） | `grep -r "recommend\|--domain" skill/ feishu-doc-mcp/src` 仅出现在禁止性说明中 |
+| P1 全程未用 --recommend/--domain | ✅（代码+文档静态保证） | `grep -r "recommend\|--domain" skill/ core/src` 仅出现在禁止性说明中 |
 | P2 revoke 一个 scope → 报精确补授权命令 | 部分 ✅（missing 检测机制 live 验证；revoke 演练未做）| test-report P2 |
 | P3 README 清单可 schema 复核 | ✅ | scope-checklist.md 每项带复核命令；1–3 项已 schema 实测，4–8 项 auth check/scopes 实测 |
 | P4 auth status 已授集合 ⊇ 清单且无超配 | ✅ | `auth status --json` missing=[]，test-report P4 |
@@ -51,6 +51,6 @@ lark-cli auth login --scope "docs:document.comment:read" --scope "docs:document.
 ```
 
 联调第一步校准（计划 Review Focus）：
-1. 真实 `+fetch --detail with-ids` 输出 → 校准 `feishu_doc_mcp/block_map.py: BLOCK_ID_PATTERNS` 与测试 fixture；
+1. 真实 `+fetch --detail with-ids` 输出 → 校准 `cowork_core/block_map.py: BLOCK_ID_PATTERNS` 与测试 fixture；
 2. 真实 metas batch_query 响应 → 校准 `doc_info.py: _OWNER_KEYS`；
-3. 真实 `+update --revision-id` 冲突语义 → 决定是否保留 MCP 侧独立 revision 比对（当前默认保留）。
+3. 真实 `+update --revision-id` 冲突语义 → 决定是否保留 cowork 侧独立 revision 比对（已保留，联调验证）（当前默认保留）。

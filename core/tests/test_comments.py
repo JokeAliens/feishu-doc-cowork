@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from feishu_doc_mcp.errors import LarkApiError
-from feishu_doc_mcp.tools.comments import (
+from cowork_core.errors import LarkApiError
+from cowork_core.tools.comments import (
     get_comment_thread, list_comments, reply_comment,
 )
 
@@ -56,7 +56,7 @@ def test_comment_body_is_earliest_reply_regardless_of_order():
     item["reply_list"]["replies"] = list(reversed(replies)) if len(replies) > 1 else replies
     item2 = _comment("c_9", "ou_x", 100, 200, "评论正文", replies=1)
     item2["reply_list"]["replies"] = list(reversed(item2["reply_list"]["replies"]))
-    from feishu_doc_mcp.tools.comments import _normalize_comment
+    from cowork_core.tools.comments import _normalize_comment
     n = _normalize_comment(item2)
     assert n["content"] == "评论正文"
     assert n["reply_count"] == 1
@@ -133,7 +133,7 @@ def test_resolve_comment(fake_cli):
         "stdout": {"ok": True, "data": {"is_solved": True}},
         "exit": 0,
     }])
-    from feishu_doc_mcp.tools.comments import resolve_comment
+    from cowork_core.tools.comments import resolve_comment
     r = resolve_comment(DOC, "c_1")
     assert r["is_solved"] is True
     argv = calls()[0]

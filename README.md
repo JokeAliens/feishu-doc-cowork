@@ -1,19 +1,21 @@
 # feishu-doc-cowork
 
-飞书文档 AI 协同编辑系统：Skill + MCP Server。AI agent 轮询指定飞书 docx 文档的 **owner 评论**，判定修改意图后以**块级最小修改**在线编辑文档，每条评论对应**恰好一个 git commit**，完成后回复评论。设计规范见 [SPEC.md](SPEC.md)。
+飞书文档 AI 协同编辑系统：Skill + `cowork` CLI。AI agent 轮询指定飞书 docx 文档的 **owner 评论**，判定修改意图后以**块级最小修改**在线编辑文档，每条评论对应**恰好一个 git commit**，回复评论并标记解决。设计规范见 [SPEC.md](SPEC.md)。
+
+> v0.2 架构变更（D2 修订）：**去掉了 MCP 层**。原 FastMCP 薄封装在本宿主（有 shell 的 agent）下零价值——联调全程实际走 shell 直接调用。逻辑层（envelope 解析、冲突检测、红线护栏）完整保留为 `core/` Python 包 + `cowork` CLI。
 
 ## 架构
 
 ```mermaid
 flowchart LR
-    A["Agent (Skill)<br/>主循环/意图判定/git"] <-->|MCP 协议| B["feishu-doc-mcp<br/>FastMCP 薄封装，无状态"]
+    A["Agent (Skill)<br/>主循环/意图判定/git"] -->|shell 子进程, JSON| B["cowork CLI (core/)<br/>薄封装，无状态"]
     B -->|子进程, JSON envelope| C["lark-cli<br/>Shortcuts / API Commands / Raw API"]
     C -->|HTTPS, OAuth 用户身份, 最小 scope| D["飞书开放平台"]
     A -->|shell| E["~/.cache/feishu-doc-cowork/{doc_id}/<br/>.git + document.md + block_map.json<br/>+ state.json + backups/"]
 ```
 
 - **lark-cli** 是唯一飞书通道（鉴权、分页、错误分类）；本系统不绕过它直调 API。
-- **feishu-doc-mcp** 只做适配：envelope 解析、错误归一化、入参校验；无业务逻辑。
+- **cowork CLI**（`core/`）只做适配：envelope 解析、错误归一化、入参校验、冲突检测；无业务逻辑。每个子命令 stdout 输出一个 JSON 对象，失败 exit 1 + `{"error":{code,message,lark_code,hint}}`。
 - **Skill**（`skill/feishu-doc-cowork/SKILL.md`）承载主循环、意图判定、git 铁律。
 - **git 目录**是审计与回滚基础设施；启动时做**纯本地备份**（保留 3 份，SPEC D17）。
 
@@ -38,8 +40,8 @@ lark-cli auth login \
   --scope "board:whiteboard:node:create" \
   --scope "board:whiteboard:node:delete"
 
-# 3. MCP server
-cd feishu-doc-mcp && uv sync   # 或 uv tool install ./feishu-doc-mcp
+# 3. core 包（提供 cowork 命令）
+cd core && uv sync             # 之后用 uv run cowork ...；或 uv tool install ./core
 
 # 4. skill 包：把 skill/feishu-doc-cowork/ 拷入你的 agent skills 目录
 
@@ -48,11 +50,11 @@ python skill/feishu-doc-cowork/scripts/config_init.py
 # 编辑 ~/.cache/feishu-doc-cowork/config.yaml 里的 identity.model_name / agent_name
 ```
 
-MCP client 配置（stdio）：command = `feishu-doc-mcp`（或 `uv run --directory <repo>/feishu-doc-mcp feishu-doc-mcp`）。
+`cowork` 子命令：`check-environment` / `get-doc-info` / `read-document` / `list-comments` / `get-comment-thread` / `apply-ops` / `reply` / `resolve`。详见 [core/README.md](core/README.md)。
 
 ## 最小权限 scope 清单（schema/auth 实测 2026-10-12）
 
-单一事实源：[`feishu-doc-mcp/src/feishu_doc_mcp/scopes.py`](feishu-doc-mcp/src/feishu_doc_mcp/scopes.py)；复核方法见 [`skill/feishu-doc-cowork/references/scope-checklist.md`](skill/feishu-doc-cowork/references/scope-checklist.md)。
+单一事实源：[`core/src/cowork_core/scopes.py`](core/src/cowork_core/scopes.py)；复核方法见 [`skill/feishu-doc-cowork/references/scope-checklist.md`](skill/feishu-doc-cowork/references/scope-checklist.md)。
 
 | scope | 能力 | 复核 |
 | --- | --- | --- |
@@ -78,5 +80,5 @@ MCP client 配置（stdio）：command = `feishu-doc-mcp`（或 `uv run --direct
 
 ## 验证
 
-- 单元测试（stub lark-cli，无需授权）：`cd feishu-doc-mcp && uv run pytest tests/`
-- 联调验收清单（需真实授权 + 测试文档）：[docs/verification.md](docs/verification.md)
+- 单元测试（stub lark-cli，无需授权）：`cd core && uv run pytest tests/`
+- 联调验收清单与结果：[docs/verification.md](docs/verification.md)、[docs/test-report.md](docs/test-report.md)

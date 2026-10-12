@@ -2,10 +2,10 @@
 
 import pytest
 
-from feishu_doc_mcp.block_map import parse_fetch_output
+from cowork_core.block_map import parse_fetch_output
 from test_block_ops import ALL_RULES, DOC, write_calls
 from test_read_doc import CANNED_DATA
-from feishu_doc_mcp.tools.block_ops import apply_block_operations
+from cowork_core.tools.block_ops import apply_block_operations
 
 
 def test_table_cells_carry_row_and_col_index():

@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from feishu_doc_mcp.tools.doc_info import get_doc_info
+from cowork_core.tools.doc_info import get_doc_info
 
 META_RULE = {
     "argv_contains": ["api", "POST", "/open-apis/drive/v1/metas/batch_query"],

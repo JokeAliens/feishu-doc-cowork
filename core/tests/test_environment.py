@@ -4,8 +4,8 @@ import sys
 
 import pytest
 
-from feishu_doc_mcp.scopes import REQUIRED_SCOPES
-from feishu_doc_mcp.tools.environment import check_environment
+from cowork_core.scopes import REQUIRED_SCOPES
+from cowork_core.tools.environment import check_environment
 
 def _status_rule(user_status):
     return {

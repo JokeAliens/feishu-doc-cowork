@@ -15,7 +15,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from feishu_doc_mcp.tools.comments import list_comments  # noqa: E402
+from cowork_core.tools.comments import list_comments  # noqa: E402
 import state  # noqa: E402
 
 

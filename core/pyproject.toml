@@ -1,0 +1,21 @@
+[project]
+name = "feishu-doc-cowork-core"
+version = "0.2.0"
+description = "lark-cli-based logic layer + CLI for Feishu docx comment-driven cowork editing"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cowork_core"]
+
+[project.scripts]
+cowork = "cowork_core.cli:main"

@@ -61,3 +61,7 @@
 
 - 真实文档已恢复原状（探针编辑与测试单元格均还原；占位段落按评论要求保留「指导EDN-Cloud平台的功能」——这是评论要求的正式修改）。
 - 未做项（U4/I5-live/I8/I9-全链路/P2-revoke/画板真实写）均已在 verification.md 标注原因。
+
+## v0.2 附记（2026-10-12 重构）
+
+应用户裁定去除 MCP 层（D2 修订）：FastMCP server 删除，逻辑层改为 `core/` 包 + `cowork` CLI（8 子命令 = 原 8 工具 1:1）。重构后 63 测试全绿；CLI 真实冒烟通过：`cowork check-environment`（logged_in, 0 missing）、`get-doc-info`（wiki 解包）、`list-comments`、`read-document`（revision 6119，1918 块）。联调全程实际就走 shell 调用，验证了过去 MCP 层零价值。

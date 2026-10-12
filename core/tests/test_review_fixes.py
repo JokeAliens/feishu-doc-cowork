@@ -4,9 +4,9 @@ import json
 
 import pytest
 
-from feishu_doc_mcp.block_map import parse_fetch_output
-from feishu_doc_mcp.errors import LarkApiError
-from feishu_doc_mcp.tools.block_ops import (
+from cowork_core.block_map import parse_fetch_output
+from cowork_core.errors import LarkApiError
+from cowork_core.tools.block_ops import (
     PartialApplyError, apply_block_operations,
 )
 from test_block_ops import API_RULE, BOARD_RULE, DOC, REV_RULE, UPDATE_RULE

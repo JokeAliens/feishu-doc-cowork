@@ -1,13 +1,13 @@
 ---
 name: feishu-doc-cowork
-description: 当用户要求对指定飞书文档做「评论驱动的 AI 协同编辑」（轮询文档 owner 评论、块级增量修改、git 审计、回复评论）时使用。需要 lark-cli 已登录且配套 feishu-doc-mcp 已安装。
+description: 当用户要求对指定飞书文档做「评论驱动的 AI 协同编辑」（轮询文档 owner 评论、块级增量修改、git 审计、回复评论）时使用。需要 lark-cli 已登录且配套 core 包（`cowork` CLI）已安装。
 ---
 
 # 飞书文档 AI 协同编辑
 
 对指定飞书 docx 文档执行**评论驱动的增量协同编辑**：轮询 owner 评论 → 判定修改意图 → 块级最小修改 → 一评论一 commit → 回复评论。主循环**永不主动退出**，唯一停止方式是 SIGINT/SIGTERM。
 
-配套组件：`feishu-doc-mcp`（MCP 工具，薄封装 lark-cli）+ 本目录 `scripts/`（state/git/backup/config 辅助脚本）。
+配套组件：`core/` 包的 `cowork` CLI（薄封装 lark-cli，输出 JSON 契约）+ 本目录 `scripts/`（state/git/backup/config/poll 辅助脚本）。
 
 ## 红线（违反即失败）
 
@@ -16,17 +16,17 @@ description: 当用户要求对指定飞书文档做「评论驱动的 AI 协同
 3. **一评论 = 恰好一个 commit**；多评论严禁合并；空改动不 commit。
 4. **串行处理**：同一时刻只处理一条评论，禁止并行 worker。
 5. 身份固定 `--as user`（lark-cli 默认 auto 已满足，不要显式切 bot）。
-6. 所有 lark-cli 调用带 `--format json`，判成功看 envelope `ok == true` + exit code，**不是** `code == 0`；写操作 MCP 内部已先 `--dry-run`。
+6. 所有飞书读写一律经 `cowork` 子命令（内部调 lark-cli `--json`，判成功看 envelope `ok == true` + exit code，**不是** `code == 0`；写操作内部已先 `--dry-run`）。不得绕过 `cowork` 直接调 lark-cli 写文档。
 
 ## 启动流程
 
 1. 读配置 `~/.cache/feishu-doc-cowork/config.yaml`；不存在 → 运行 `python scripts/config_init.py` 创建后请用户确认 `identity.model_name` / `agent_name`，再启动。配置非法 → 报错退出。
-2. MCP `check_environment`：
+2. `cowork check-environment`：
    - 未登录 → 输出引导（安装 lark-cli → `lark-cli auth login <精确 scope 清单>`，见 `references/scope-checklist.md`），退出等用户完成。
    - 缺 scope → 输出返回的 `suggested_login_command`（只含缺失项），退出。**不得**自行放宽 scope。
-3. MCP `get_doc_info(doc_url)` → `doc_id, owner_id, title`。旧版 doc 链接会报错，提示用户迁移 docx。
+3. `cowork get-doc-info <doc_url>` → `doc_id, owner_id, title`。旧版 doc 链接会报错，提示用户迁移 docx。
 4. `python scripts/git_ops.py {doc_dir} ensure-repo`，doc_dir = `~/.cache/feishu-doc-cowork/{doc_id}/`（已存在则复用）。
-5. MCP `read_document(doc_id)` → 写入 `document.md` + `block_map.json`。
+5. `cowork read-document <doc_id>` → 写入 `document.md` + `block_map.json`。
 6. **本地备份（D17）**：`python scripts/backup.py {doc_dir} {doc_id} {title} {revision_id}` 生成 `backups/{ts}/` 快照 + 更新 `backups.json`（只保留最新 3 份，自动删最旧）→ git 提交一次：`backup: 启动本地快照 (doc: {title}, revision: {revision_id})`。
 7. 若仓库无任何 commit → 基线 commit：`init: 文档基线快照 (doc: {title})`（备份 commit 与基线 commit 可合并为一次 add，但 message 分行写清两件事；严格起见分两个 commit 亦可）。
 8. `python scripts/state.py {doc_dir} reset-processing`（崩溃恢复：processing → pending，重处理前必须重新 read_document + 重新规划，禁止复用旧 operations）。
@@ -36,31 +36,31 @@ description: 当用户要求对指定飞书文档做「评论驱动的 AI 协同
 
 ```
 1. sleep(poll_interval_sec × (1 ± poll_jitter))          # 默认 10s ± 20%
-2. list_comments(doc_id, is_solved=false)
+2. `cowork list-comments <doc_id>`（默认未解决）
 3. 过滤：
    a. user_id == owner_id（非 owner 一律跳过）
    b. comment_id 不在 state.json，或 state.update_time < 评论当前 update_time
       （owner 编辑过已处理评论 → 视为新需求重新处理）
 4. 对每条候选评论，串行执行：
    a. state upsert processing（落盘）
-   b. get_comment_thread → 按 references/intent-prompt.md 判定：
+   b. `cowork get-comment-thread` → 按 references/intent-prompt.md 判定：
       - EDIT_REQUEST → 继续
       - QUESTION_OR_DISCUSS / OUT_OF_SCOPE → upsert skipped，不回复，下一条
-   c. 快照：read_document → 保存 doc_before（记录 revision_id）
+   c. 快照：`cowork read-document` → 保存 doc_before（记录 revision_id）
    d. 规划：基于 markdown + block_map 生成块级最小 operations
-   e. apply_block_operations(doc_id, operations, expected_revision_id)
-      - CONFLICT → 重新 read_document + 重新规划，上限 3 次；仍失败走 k
-   f. 验证：再次 read_document → doc_after，确认目标改动生效
+   e. `cowork apply-ops <doc_id> --ops @ops.json --expected-revision N`
+      - CONFLICT → 重新 read-document + 重新规划，上限 3 次；仍失败走 k
+   f. 验证：再次 `cowork read-document` → doc_after，确认目标改动生效
    g. state upsert done（summary、error=null；commit_sha 暂留空）→ 落盘
    h. git：更新 document.md / block_map.json；
-      has_doc_diff 为 false（空改动）→ 不 commit，回复「内容已符合要求，无需修改」，resolve_comment 后下一条；
+      has_doc_diff 为 false（空改动）→ 不 commit，`cowork reply`「内容已符合要求，无需修改」，`cowork resolve` 后下一条；
       否则 commit_comment（恰好一个 commit，message 模板见下；git add -A 会把 g 的 state.json 一并纳入本评论的 commit）
    i. commit 后 upsert commit_sha
-   j. reply_comment("修改完成，使用AI模型：{model_name}， Agent：{agent_name}")
-      → 随后重新 get_comment_thread 取**回复后**的最新 update_time 并 upsert 覆盖 state
+   j. `cowork reply <doc_id> <comment_id> "修改完成，使用AI模型：{model_name}， Agent：{agent_name}"`
+      → 随后重新 `cowork get-comment-thread` 取**回复后**的最新 update_time 并 upsert 覆盖 state
       （自己的回复会 bump 评论 update_time；不刷新则下一轮 poll 误判 owner 编辑过而无限重处理——2026-10-12 实测确认）
-      → 最后 resolve_comment（标记解决并隐藏，评论闭环；solved 评论不再进入轮询）
-   k. 任何异常 → upsert failed（含原因；若 apply_block_operations 抛 PartialApplyError，失败回复必须列出其 applied 列表——「已应用前 N 项（块 x,y），失败于块 z」），回复失败格式（见下），继续下一条
+      → 最后 `cowork resolve`（标记解决并隐藏，评论闭环；solved 评论不再进入轮询）
+   k. 任何异常 → upsert failed（含原因；若 apply-ops 返回 PartialApplyError（error.code=底层原因、message 含已应用列表），失败回复必须列出其 applied 列表——「已应用前 N 项（块 x,y），失败于块 z」），回复失败格式（见下），继续下一条
 5. 回到 1
 ```
 
@@ -97,7 +97,7 @@ SIGINT/SIGTERM：无评论在 processing → 立即退出；有 → 完成该评
 
 - CONFLICT 重试上限 3 次（§8）。
 - 权限错误 → 用 `lark-cli schema <method>` 查所需 scope，输出精确补授权命令后走 failed 流程，**不得**自行换更宽 scope。
-- 画板修改超出 DSL 能力 → MCP 返回 BOARD_UNSUPPORTED → 按 OUT_OF_SCOPE 处理（skipped，不回复）。
+- 画板修改超出 DSL 能力 → apply-ops 结果标 BOARD_UNSUPPORTED → 按 OUT_OF_SCOPE 处理（skipped，不回复）。
 - 429/5xx → 指数退避（base 5s，上限 120s），单评论重试上限 `max_retry_per_comment`（默认 3）。
 
 ## 能力范围

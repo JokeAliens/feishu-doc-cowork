@@ -1,6 +1,6 @@
 import pytest
 
-from feishu_doc_mcp.url_parse import LegacyDocError, parse_doc_url
+from cowork_core.url_parse import LegacyDocError, parse_doc_url
 
 
 def test_full_docx_url_with_query():

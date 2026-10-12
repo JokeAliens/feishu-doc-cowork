@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from feishu_doc_mcp.block_map import parse_fetch_output
-from feishu_doc_mcp.errors import LarkApiError
-from feishu_doc_mcp.tools.read_doc import read_document
+from cowork_core.block_map import parse_fetch_output
+from cowork_core.errors import LarkApiError
+from cowork_core.tools.read_doc import read_document
 
 # Real-format fixture calibrated from live fetch 2026-10-12
 # (docs +fetch --doc-format xml --detail with-ids, ruijie wiki doc).

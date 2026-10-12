@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from feishu_doc_mcp.tools.block_ops import ConflictError, apply_block_operations
+from cowork_core.tools.block_ops import ConflictError, apply_block_operations
 
 DOC = "Z1FjAbCdEf1234"
 REV_RULE = {
