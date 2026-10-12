@@ -2,7 +2,7 @@
 
 飞书文档 AI 协同编辑系统：Skill + `cowork` CLI。AI agent 轮询指定飞书 docx 文档的 **owner 评论**，判定修改意图后以**块级最小修改**在线编辑文档，每条评论对应**恰好一个 git commit**，回复评论并标记解决。设计规范见 [SPEC.md](SPEC.md)。
 
-> v0.2 架构变更（D2 修订）：**去掉了 MCP 层**。原 FastMCP 薄封装在本宿主（有 shell 的 agent）下零价值——联调全程实际走 shell 直接调用。逻辑层（envelope 解析、冲突检测、红线护栏）完整保留为 `core/` Python 包 + `cowork` CLI。
+[English README](docs/README.en.md)
 
 ## 架构
 
@@ -17,18 +17,19 @@ flowchart LR
 - **lark-cli** 是唯一飞书通道（鉴权、分页、错误分类）；本系统不绕过它直调 API。
 - **cowork CLI**（`core/`）只做适配：envelope 解析、错误归一化、入参校验、冲突检测；无业务逻辑。每个子命令 stdout 输出一个 JSON 对象，失败 exit 1 + `{"error":{code,message,lark_code,hint}}`。
 - **Skill**（`skills/feishu-doc-cowork/SKILL.md`）承载主循环、意图判定、git 铁律。
-- **git 目录**是审计与回滚基础设施；启动时做**纯本地备份**（保留 3 份，SPEC D17）。
+- **git 目录**是审计与回滚基础设施；启动时做**纯本地备份**（保留 3 份）。
 
 ## 安装
 
-前置：Python ≥ 3.11（推荐 uv 管理）、Node.js（装 lark-cli）、git。
+### 前置（lark-cli 与授权）
+
+需要 Node.js（装 lark-cli）、uv（Python 包管理）、git。
 
 ```bash
-# 1. lark-cli（@larksuite/cli）
 npm install -g @larksuite/cli
 lark-cli config init          # 按提示绑定应用
 
-# 2. 精确授权（禁止 --recommend / --domain；清单见下）
+# 精确授权（禁止 --recommend / --domain）
 lark-cli auth login \
   --scope "docs:document.comment:read" \
   --scope "docs:document.comment:create" \
@@ -39,23 +40,29 @@ lark-cli auth login \
   --scope "board:whiteboard:node:read" \
   --scope "board:whiteboard:node:create" \
   --scope "board:whiteboard:node:delete"
+```
 
-# 3. core 包（提供 cowork 命令）——直接从 git tag 安装
+### cowork（逻辑层 CLI）
+
+```bash
 uv tool install "git+https://github.com/JokeAliens/feishu-doc-cowork@v1.0.0#subdirectory=core"
-# 或本地开发：cd core && uv sync && uv run cowork ...
+cowork check-environment      # 自检：登录状态 + scope 覆盖
+```
 
-# 4. skill 安装（二选一）
+本地开发：`cd core && uv sync && uv run cowork ...`
+
+### skill
+
+```bash
 npx skills add JokeAliens/feishu-doc-cowork        # 推荐：经 skills CLI 装入你的 agent
 # 或手动：把 skills/feishu-doc-cowork/ 拷入 agent skills 目录
 
-# 5. 运行配置（首次）
-python skills/feishu-doc-cowork/scripts/config_init.py
+# 首次运行配置
+python <skills目录>/feishu-doc-cowork/scripts/config_init.py
 # 编辑 ~/.cache/feishu-doc-cowork/config.yaml 里的 identity.model_name / agent_name
 ```
 
-`cowork` 子命令：`check-environment` / `get-doc-info` / `read-document` / `list-comments` / `get-comment-thread` / `apply-ops` / `reply` / `resolve`。详见 [core/README.md](core/README.md)。
-
-## 最小权限 scope 清单（schema/auth 实测 2026-10-12）
+## 最小权限 scope 清单
 
 单一事实源：[`core/src/cowork_core/scopes.py`](core/src/cowork_core/scopes.py)；复核方法见 [`skills/feishu-doc-cowork/references/scope-checklist.md`](skills/feishu-doc-cowork/references/scope-checklist.md)。
 
@@ -67,11 +74,9 @@ python skills/feishu-doc-cowork/scripts/config_init.py
 | `drive:drive.metadata:readonly` | 文件元信息（owner） | `lark-cli schema drive.metas.batch_query` |
 | `docx:document:readonly` | 读文档块 | `lark-cli auth check --scope "..."` |
 | `docx:document` | 块级写文档 | 同上 |
-| `board:whiteboard:node:read` / `:create` / `:delete` | 画板读写 | `lark-cli auth scopes --json`（该应用无 node:update） |
+| `board:whiteboard:node:read` / `:create` / `:delete` | 画板读写 | `lark-cli auth scopes --json` |
 
-无超配验收：`lark-cli auth status --json` 中本系统用到的 scope == 上表，一个不多。
-
-## 已知限制（SPEC §10）
+## 已知限制
 
 1. 轮询制，评论感知延迟 = poll_interval（默认 10s）+ 处理耗时，非实时。
 2. 画板编辑以 whiteboard DSL 覆盖面为准；无法表达的图元返回 `BOARD_UNSUPPORTED`，按 OUT_OF_SCOPE 静默跳过。
@@ -81,7 +86,6 @@ python skills/feishu-doc-cowork/scripts/config_init.py
 6. 回复以用户本人身份发出，评论区显示"自己回复自己"，属预期（审计友好）。
 7. 备份为纯本地快照（保留 3 份）；应用未启用文件删除 scope，不做云盘副本。
 
-## 验证
+## License
 
-- 单元测试（stub lark-cli，无需授权）：`cd core && uv run pytest tests/`
-- 联调验收清单与结果：[docs/verification.md](docs/verification.md)、[docs/test-report.md](docs/test-report.md)
+[MIT](LICENSE)
