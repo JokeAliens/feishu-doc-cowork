@@ -64,6 +64,22 @@ def reset_processing(doc_dir):
     return reset
 
 
+def set_identity(doc_dir, model_name, agent_name):
+    """Persist the reply/commit signature identity (v1.0.3).
+
+    The agent self-detects its model at every watcher (re)start and records
+    it here, so a mid-run model switch is reflected in later replies.
+    """
+    data = load(doc_dir)
+    data["identity"] = {
+        "model_name": model_name,
+        "agent_name": agent_name,
+        "captured_at": int(time.time()),
+    }
+    _atomic_write(doc_dir, data)
+    return data["identity"]
+
+
 def main(argv):
     doc_dir, cmd = argv[1], argv[2]
     if cmd == "load":
@@ -72,6 +88,9 @@ def main(argv):
         upsert(doc_dir, argv[3], argv[4])
     elif cmd == "reset-processing":
         print(json.dumps(reset_processing(doc_dir), ensure_ascii=False))
+    elif cmd == "set-identity":
+        print(json.dumps(set_identity(doc_dir, argv[3], argv[4]),
+                         ensure_ascii=False))
     else:
         raise SystemExit(f"unknown command: {cmd}")
 

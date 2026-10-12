@@ -72,6 +72,23 @@ def test_poll_edited_comment_reprocesses(tmp_path, fake_cowork, monkeypatch):
 
 # ---------- state.py ----------
 
+def test_state_identity_roundtrip(tmp_path):
+    """v1.0.3: identity 由 agent 在 watcher 启动时自问自报并落盘。"""
+    state.set_identity(str(tmp_path), model_name="zai/glm-5.3-flash:high",
+                       agent_name="OMP")
+    data = state.load(str(tmp_path))
+    assert data["identity"]["model_name"] == "zai/glm-5.3-flash:high"
+    assert data["identity"]["agent_name"] == "OMP"
+    assert data["identity"]["captured_at"] > 0
+    # 重新判断（换模型）会覆盖
+    state.set_identity(str(tmp_path), model_name="deepseek-v4", agent_name="OMP")
+    assert state.load(str(tmp_path))["identity"]["model_name"] == "deepseek-v4"
+
+
+def test_state_identity_absent_by_default(tmp_path):
+    assert state.load(str(tmp_path)).get("identity") is None
+
+
 def test_state_upsert_load_roundtrip(tmp_path):
     state.upsert(str(tmp_path), "c_1", "done", update_time=100,
                  commit_sha="a1b2c3d", summary="改标题", error=None)

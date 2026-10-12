@@ -21,7 +21,7 @@ description: 当用户要求对指定飞书文档做「评论驱动的 AI 协同
 ## 启动流程
 
 1. 读配置 `~/.cache/feishu-doc-cowork/config.yaml`；不存在 → 运行 `python scripts/config_init.py` 创建（默认值即可用，无需手改）。配置非法 → 报错退出。
-   - **model_name / agent_name 不在配置中**：回复与 commit 署名由你（执行本 skill 的 agent）在处理时**动态自报**——model_name 取当前运行模型的真实标识（如 `kimi-code/k3`、`GLM5.3`），agent_name 取当前 agent 框架名（如 `OMP`）。禁止编造或沿用他人值；无法确认自己身份时向用户询问一次。
+   - **model_name / agent_name 不在配置中**：由署名探测步骤（见第 10 步）产生并落盘 state.json，回复/commit 时从 state.json 读取。
 2. `cowork check-environment`：
    - 未登录 → 输出引导（安装 lark-cli → `lark-cli auth login <精确 scope 清单>`，见 `references/scope-checklist.md`），退出等用户完成。
    - 缺 scope → 输出返回的 `suggested_login_command`（只含缺失项），退出。**不得**自行放宽 scope。
@@ -36,7 +36,13 @@ description: 当用户要求对指定飞书文档做「评论驱动的 AI 协同
    > 我将开始**常驻轮询监听**该文档的评论（每 {poll_interval_sec}s，仅处理你的评论，修改类评论会直接改文档并回复）。确认开始监听吗？
 
    用户确认 → 进入主循环并启动 watcher；用户拒绝/要求调整 → 按用户指示，**不得**自行开始监听。若宿主不支持交互提问，则以显著消息声明上述内容后直接开始，并在首条回复中再次声明监听状态。
-10. 进入主循环。
+10. **署名探测（每次启动/重启 watcher 必做）**：用户确认监听后，立即自问「**我当前运行的是什么模型**」——依据当前这轮上下文中的模型标识（如系统提示的 `Model:` 字段）作答，agent_name 取当前 agent 框架名。将答案写入 state.json：
+    `python scripts/state.py {doc_dir} set-identity "<model_name>" "<agent_name>"`
+    - 回复与 commit 的署名**一律读 state.json 的 identity**，禁止凭记忆/印象现编；
+    - **每次 watcher 重启（含中断恢复、模型切换后重连）都重做本步**，使署名跟随真实模型变化；
+    - 若上下文中找不到模型标识 → 向用户询问一次「当前是什么模型」，以用户回答为准落盘；
+    - 诚实兜底：弱模型可能自报错误，用户随时可指出更正，更正后立即 set-identity 覆盖。
+11. 进入主循环。
 
 ## 主循环（永久，直到 SIGINT/SIGTERM）
 
