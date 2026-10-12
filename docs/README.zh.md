@@ -45,7 +45,7 @@ lark-cli auth login \
 ### cowork（逻辑层 CLI）
 
 ```bash
-uv tool install "git+https://github.com/JokeAliens/feishu-doc-cowork@v1.0.2#subdirectory=core"
+uv tool install "git+https://github.com/JokeAliens/feishu-doc-cowork@v1.0.3#subdirectory=core"
 cowork check-environment      # 自检：登录状态 + scope 覆盖
 ```
 
