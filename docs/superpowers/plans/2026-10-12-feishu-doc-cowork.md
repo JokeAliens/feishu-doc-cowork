@@ -44,7 +44,7 @@
 | 文件元信息（owner） | `drive:drive.metadata:readonly` | schema drive.metas.batch_query |
 | docx 块读 | `docx:document:readonly` | docx 不在 schema 服务列表内，README 标注用 `auth check` 复核 |
 | docx 块写 | `docx:document` | 同上 |
-| 画板 | `board:whiteboard:node:read` + `board:whiteboard:node:create` + `board:whiteboard:node:update` + `board:whiteboard:node:delete`（schema 无 whiteboard 服务，auth status 实测已见 board:whiteboard:node:* 命名空间；README 标注复核方法，若 +update 实测用不了某个 scope 再缩减） | auth status 实测 |
+| 画板 | `board:whiteboard:node:read` + `board:whiteboard:node:create` + `board:whiteboard:node:delete`（schema 无 whiteboard 服务；`auth scopes` 实测该应用无 node:update，+update 走增删节点） | auth scopes 实测 |
 
 ## Review Focus
 
@@ -182,15 +182,18 @@
 - Create: `skill/feishu-doc-cowork/scripts/config_init.py`（生成 §4.1 config.yaml 到 `~/.cache/feishu-doc-cowork/config.yaml`，已存在不覆盖）
 - Create: `skill/feishu-doc-cowork/scripts/state.py`（state.json 原子读写：`load(doc_dir)`/`get(doc_dir, cid)`/`upsert(doc_dir, cid, status, **fields)`/`reset_processing(doc_dir)` 崩溃恢复重置为 pending；结构按 §7.5；写用 tmp+rename）
 - Create: `skill/feishu-doc-cowork/scripts/git_ops.py`（`ensure_repo(doc_dir)` init+`.gitignore`、`commit_comment(doc_dir, comment_id, comment_text, summary, block_ids, model_name, agent_name, status)` 按 §7.3 模板生成 message 提交全部变更、`has_doc_diff(doc_dir)` 空改动守卫；git 走 subprocess）
+- Create: `skill/feishu-doc-cowork/scripts/backup.py`（D17 纯本地备份：`create_backup(doc_dir, doc_id, title, revision_id, document_md, block_map_json, keep=3)` → 写 `backups/{YYYYmmdd-HHMMSS}/document.md`+`block_map.json`，更新 `backups.json` 映射（doc_id、title、revision_id、ts、path），**只保留最新 3 份**（删除更旧的备份目录），返回备份记录；由 skill 启动流程调用后用 git_ops 单独 commit `backup: 启动本地快照 (doc: {title}, revision: {n})`）
 - Test: `feishu-doc-mcp/tests/test_skill_scripts.py`（脚本带 `if __name__ == "__main__"` CLI，可被测试 import）
 
 **Interfaces:**
 - Produces（供 SKILL.md 主循环引用，也是联调脚本接口）：
   - `state.py`: `load(doc_dir) -> dict`、`upsert(doc_dir, comment_id, status, update_time=None, commit_sha=None, summary=None, error=None)`、`reset_processing(doc_dir) -> list[str]`（返回被重置的 comment_id）。
   - `git_ops.py`: `ensure_repo(doc_dir) -> None`、`has_doc_diff(doc_dir) -> bool`（document.md 与 HEAD 比对）、`commit_comment(...) -> str`（返回 commit sha）。
+  - `backup.py`: `create_backup(doc_dir, doc_id, title, revision_id, document_md, block_map_json, keep=3) -> dict`（返回备份记录 {ts, path, revision_id}；自动修剪到 keep 份）。
 - [ ] **Step 1: 写失败测试** —
   - state：upsert→load 往返；processing 崩溃恢复 → reset_processing 后状态 pending；并发安全不要求（串行）。
   - git：tmp 目录 ensure_repo → 有 .git 和 .gitignore；写 document.md 后 commit_comment → `git log --format=%B` 含 `[comment:c_1]`、评论全文、`状态: done`、模型/Agent 名；50 字符截断规则（第一行超长时）；连续两评论 → 两个 commit（I1/I2 的本地侧）；document.md 无变化时 has_doc_diff=False（I4 守卫）。
+  - backup：create_backup 生成 backups/{ts}/ 两份文件且 backups.json 记录 doc_id/revision/path；连续 4 次备份后磁盘只剩 3 个备份目录、backups.json 恰 3 条且最新在前（D17 保留策略）。
 - [ ] **Step 2–5:** 标准节奏 → commit `feat(skill): SKILL.md, state machine and git helpers`。
 
 ### Task 8: README 与 MCP 文档

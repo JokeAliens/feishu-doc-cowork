@@ -13,6 +13,7 @@ REQUIRED_SCOPES = [
     "docx:document",                   # docx blocks write (not in schema; auth check)
     "board:whiteboard:node:read",      # whiteboard read (not in schema; auth check)
     "board:whiteboard:node:create",    # whiteboard node create
-    "board:whiteboard:node:update",    # whiteboard node update
     "board:whiteboard:node:delete",    # whiteboard node delete
+    # NOTE: no board:whiteboard:node:update exists for this app (auth scopes
+    #实测 2026-10-12); +update works via node create/delete.
 ]
