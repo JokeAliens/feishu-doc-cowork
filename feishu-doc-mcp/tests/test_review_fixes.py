@@ -83,20 +83,21 @@ def test_partial_failure_reports_applied_ops(fake_cli):
 
 
 def test_nonempty_content_without_markers_raises():
-    """Important #5: unparseable marker format must fail loudly, not silently
+    """Important #5: unparseable format must fail loudly, not silently
     return an empty block_map."""
     with pytest.raises(LarkApiError) as exc_info:
-        parse_fetch_output({"content": "第一段没有记号\n第二段也没有\n", "revision_id": 1})
+        parse_fetch_output({"document": {"content": "<p>第一段没有记号</p><p>第二段也没有</p>",
+                                         "revision_id": 1}})
     assert exc_info.value.code == "block_map_unresolved"
     assert "第一段没有记号" in exc_info.value.message  # sample included
 
 
 def test_empty_document_allowed():
-    r = parse_fetch_output({"content": "", "revision_id": 1})
+    r = parse_fetch_output({"document": {"content": "", "revision_id": 1}})
     assert r["block_map"] == []
 
 
 def test_missing_revision_raises():
     """Minor #9 (absorbed): missing revision fails at parse time."""
     with pytest.raises(ValueError):
-        parse_fetch_output({"content": "x <!-- block_id: b1 -->"})
+        parse_fetch_output({"document": {"content": "<p id='doxcnX1'>x</p>"}})

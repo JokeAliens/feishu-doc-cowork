@@ -66,6 +66,8 @@ def _to_int_or_none(value):
 
 def _extract_revision(data):
     if isinstance(data, dict):
+        if isinstance(data.get("document"), dict):
+            data = data["document"]
         for key in _REVISION_KEYS:
             rev = _to_int_or_none(data.get(key))
             if rev is not None:

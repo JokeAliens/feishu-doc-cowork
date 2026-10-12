@@ -23,9 +23,9 @@ FastMCP 薄封装层：把 lark-cli 调用包装成结构化 MCP 工具（SPEC �
 
 ### `read_document(doc_id: str) -> dict`
 
-`docs +fetch --doc-format markdown --detail with-ids`。
-出参：`{markdown, block_map: [{line, block_id, block_type, parent_id, child_index}], revision_id}`。
-block_map 行号指向**剥离记号后的** markdown（1 基），可逆寻址。
+`docs +fetch --doc-format xml --detail with-ids`（with-ids 对 markdown 无效，2026-10-12 实测），DocxXML 解析为 markdown + 块映射。
+出参：`{markdown, block_map: [{line, block_id, block_type, parent_id, child_index, whiteboard_token?}], revision_id}`。
+block_map 行号指向生成的 markdown（1 基），可逆寻址；表格单元格/列表项带 parent_id 与 child_index。非空内容解析不出任何带 id 块时抛 `block_map_unresolved`（拒绝盲改）。
 
 ### `list_comments(doc_id: str, is_solved: bool = False) -> list`
 

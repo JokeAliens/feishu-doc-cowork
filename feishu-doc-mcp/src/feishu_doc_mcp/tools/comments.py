@@ -28,14 +28,20 @@ def _to_int(value):
 
 
 def _normalize_comment(item):
+    # real API shape (calibrated 2026-10-12): the comment body is
+    # reply_list.replies[0]; no top-level content/reply_count fields.
+    replies = (item.get("reply_list") or {}).get("replies") or []
+    # reply order is not guaranteed (observed live 2026-10-12);
+    # the comment body is the chronologically first reply.
+    first = min(replies, key=lambda r: _to_int(r.get("create_time"))) if replies else {}
     return {
         "comment_id": item.get("comment_id"),
-        "user_id": item.get("user_id"),
-        "create_time": _to_int(item.get("create_time")),
-        "update_time": _to_int(item.get("update_time")),
-        "content": _text_from_elements(item.get("content")),
+        "user_id": item.get("user_id") or first.get("user_id"),
+        "create_time": _to_int(item.get("create_time") or first.get("create_time")),
+        "update_time": _to_int(item.get("update_time") or first.get("update_time")),
+        "content": _text_from_elements(item.get("content") or first.get("content")),
         "quote": item.get("quote") or "",
-        "reply_count": _to_int(item.get("reply_count")),
+        "reply_count": max(len(replies) - 1, 0),
         "is_solved": bool(item.get("is_solved")),
         "is_whole": bool(item.get("is_whole")),
     }

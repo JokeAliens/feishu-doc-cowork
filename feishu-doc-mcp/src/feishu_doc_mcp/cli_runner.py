@@ -46,6 +46,16 @@ def run_lark_cli(args, *, dry_run=False, timeout=DEFAULT_TIMEOUT):
     except subprocess.TimeoutExpired as e:
         raise CliExecError(f"lark-cli timed out after {timeout}s: {args}") from e
     if proc.returncode != 0:
+        # lark-cli exits non-zero for some API-level failures while still
+        # emitting a valid envelope (observed 2026-10-12: +update degrade
+        # exit 1 with ok:false + warnings). Prefer the envelope so callers
+        # get code/hint via unwrap; only non-JSON output is an exec error.
+        try:
+            envelope = json.loads(proc.stdout)
+            if isinstance(envelope, dict) and "ok" in envelope:
+                return envelope
+        except json.JSONDecodeError:
+            pass
         raise CliExecError(
             f"lark-cli exited {proc.returncode}: {args}\n"
             f"stdout: {proc.stdout.strip()}\nstderr: {proc.stderr.strip()}"

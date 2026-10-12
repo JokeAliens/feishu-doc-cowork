@@ -39,9 +39,27 @@ def test_run_appends_format_json(fake_cli):
     assert argv.index("--format") < len(argv) - 1 and argv[argv.index("--format") + 1] == "json"
 
 
+def test_run_nonzero_exit_with_valid_envelope_returns_it(fake_cli):
+    """lark-cli exits 1 for API-level failures with a valid envelope
+    (observed live 2026-10-12: +update no-op degrade); the envelope must
+    reach unwrap so the caller gets code/hint instead of CliExecError."""
+    set_rules, _ = fake_cli
+    set_rules([{"argv_contains": ["+update"], "stdout": {
+        "ok": False, "data": {"result": "failed",
+                              "warnings": ["degrade_code=1011,no changes"]},
+        "error": {"type": "api", "subtype": "degrade",
+                  "message": "no document changes", "hint": "check content"}},
+        "exit": 1}])
+    env = run_lark_cli(["docs", "+update"])
+    assert env["ok"] is False
+    with pytest.raises(LarkApiError) as exc_info:
+        unwrap(env)
+    assert exc_info.value.hint == "check content"
+
+
 def test_run_nonzero_exit_raises_cli_exec(fake_cli):
     set_rules, _ = fake_cli
-    set_rules([{"argv_contains": ["boom"], "stdout": {"ok": False}, "exit": 1}])
+    set_rules([{"argv_contains": ["boom"], "stdout": "panic: something broke", "exit": 1}])
     with pytest.raises(CliExecError):
         run_lark_cli(["boom"])
 
