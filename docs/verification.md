@@ -1,6 +1,6 @@
 # 验收清单（SPEC §11）
 
-准备：测试文档（含段落、表格、画板）+ 已按 `skill/feishu-doc-cowork/references/scope-checklist.md` 精确授权的 lark-cli（user 身份）。
+准备：测试文档（含段落、表格、画板）+ 已按 `skills/feishu-doc-cowork/references/scope-checklist.md` 精确授权的 lark-cli（user 身份）。
 
 标记：✅ 已通过（附证据）/ ❌ 未通过 / ⬜ 未执行。`[stub]` = 已由单元测试覆盖（stub lark-cli）；`[live]` = 需真实授权联调。
 

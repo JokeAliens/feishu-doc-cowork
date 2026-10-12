@@ -16,7 +16,7 @@ flowchart LR
 
 - **lark-cli** 是唯一飞书通道（鉴权、分页、错误分类）；本系统不绕过它直调 API。
 - **cowork CLI**（`core/`）只做适配：envelope 解析、错误归一化、入参校验、冲突检测；无业务逻辑。每个子命令 stdout 输出一个 JSON 对象，失败 exit 1 + `{"error":{code,message,lark_code,hint}}`。
-- **Skill**（`skill/feishu-doc-cowork/SKILL.md`）承载主循环、意图判定、git 铁律。
+- **Skill**（`skills/feishu-doc-cowork/SKILL.md`）承载主循环、意图判定、git 铁律。
 - **git 目录**是审计与回滚基础设施；启动时做**纯本地备份**（保留 3 份，SPEC D17）。
 
 ## 安装
@@ -40,13 +40,16 @@ lark-cli auth login \
   --scope "board:whiteboard:node:create" \
   --scope "board:whiteboard:node:delete"
 
-# 3. core 包（提供 cowork 命令）
-cd core && uv sync             # 之后用 uv run cowork ...；或 uv tool install ./core
+# 3. core 包（提供 cowork 命令）——直接从 git tag 安装
+uv tool install "git+https://github.com/JokeAliens/feishu-doc-cowork@v1.0.0#subdirectory=core"
+# 或本地开发：cd core && uv sync && uv run cowork ...
 
-# 4. skill 包：把 skill/feishu-doc-cowork/ 拷入你的 agent skills 目录
+# 4. skill 安装（二选一）
+npx skills add JokeAliens/feishu-doc-cowork        # 推荐：经 skills CLI 装入你的 agent
+# 或手动：把 skills/feishu-doc-cowork/ 拷入 agent skills 目录
 
 # 5. 运行配置（首次）
-python skill/feishu-doc-cowork/scripts/config_init.py
+python skills/feishu-doc-cowork/scripts/config_init.py
 # 编辑 ~/.cache/feishu-doc-cowork/config.yaml 里的 identity.model_name / agent_name
 ```
 
@@ -54,7 +57,7 @@ python skill/feishu-doc-cowork/scripts/config_init.py
 
 ## 最小权限 scope 清单（schema/auth 实测 2026-10-12）
 
-单一事实源：[`core/src/cowork_core/scopes.py`](core/src/cowork_core/scopes.py)；复核方法见 [`skill/feishu-doc-cowork/references/scope-checklist.md`](skill/feishu-doc-cowork/references/scope-checklist.md)。
+单一事实源：[`core/src/cowork_core/scopes.py`](core/src/cowork_core/scopes.py)；复核方法见 [`skills/feishu-doc-cowork/references/scope-checklist.md`](skills/feishu-doc-cowork/references/scope-checklist.md)。
 
 | scope | 能力 | 复核 |
 | --- | --- | --- |
