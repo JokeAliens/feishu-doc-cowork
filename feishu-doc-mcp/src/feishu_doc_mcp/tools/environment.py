@@ -17,7 +17,7 @@ def check_environment():
              "suggested_login_command": str}.
     """
     try:
-        status_env = run_lark_cli(["auth", "status", "--json"])
+        status_env = run_lark_cli(["auth", "status"])
     except CliExecError as e:
         return {
             "logged_in": False,
@@ -42,7 +42,7 @@ def check_environment():
     # One call checks all scopes; envelope shape (grounded 2026-10-12):
     # {"ok": true, "granted": [...], "missing": null|[...]}
     check_env = run_lark_cli([
-        "auth", "check", "--scope", " ".join(REQUIRED_SCOPES), "--json",
+        "auth", "check", "--scope", " ".join(REQUIRED_SCOPES),
     ])
     payload = check_env.get("data") or check_env
     missing = payload.get("missing") or []

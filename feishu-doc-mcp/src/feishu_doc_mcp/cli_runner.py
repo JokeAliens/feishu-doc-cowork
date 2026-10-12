@@ -36,7 +36,9 @@ def run_lark_cli(args, *, dry_run=False, timeout=DEFAULT_TIMEOUT):
     argv = [*_bin_argv(), *args]
     if dry_run:
         argv.append("--dry-run")
-    argv.extend(["--format", "json"])
+    # --json is the universal shorthand; --format json is rejected by some
+    # commands (e.g. auth status, observed live 2026-10-12)
+    argv.append("--json")
     try:
         proc = subprocess.run(
             argv, capture_output=True, text=True, timeout=timeout,

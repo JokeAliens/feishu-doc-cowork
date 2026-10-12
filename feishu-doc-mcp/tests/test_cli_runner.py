@@ -29,14 +29,14 @@ def test_unwrap_error_raises_with_hint():
     assert err.hint == "run: lark-cli auth login --scope docs:document.comment:read"
 
 
-def test_run_appends_format_json(fake_cli):
+def test_run_appends_json_flag(fake_cli):
+    """--json shorthand is universal; --format json is NOT (auth status
+    rejects it, observed live 2026-10-12)."""
     set_rules, calls = fake_cli
     set_rules([{"argv_contains": ["auth", "status"], "stdout": {"ok": True, "data": {"x": 1}}, "exit": 0}])
     result = run_lark_cli(["auth", "status"])
     assert result["ok"] is True
-    argv = calls()[0]
-    assert "--format" in argv and "json" in argv
-    assert argv.index("--format") < len(argv) - 1 and argv[argv.index("--format") + 1] == "json"
+    assert "--json" in calls()[0]
 
 
 def test_run_nonzero_exit_with_valid_envelope_returns_it(fake_cli):
