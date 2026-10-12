@@ -12,7 +12,62 @@ sys.path.insert(0, str(SCRIPTS))
 
 import backup  # noqa: E402
 import git_ops  # noqa: E402
+import poll_comments  # noqa: E402
 import state  # noqa: E402
+
+
+# ---------- poll_comments.py (v1.0.2: must work with only `cowork` on PATH) ----------
+
+@pytest.fixture()
+def fake_cowork(tmp_path, monkeypatch):
+    """Fake `cowork` executable emitting canned list-comments JSON."""
+    log = tmp_path / "cowork_calls.jsonl"
+    canned = tmp_path / "comments.json"
+    bin_path = tmp_path / "cowork"
+    bin_path.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, os, sys\n"
+        f"open({str(log)!r}, 'a').write(json.dumps(sys.argv[1:]) + '\\n')\n"
+        f"print(open({str(canned)!r}).read())\n",
+        encoding="utf-8")
+    bin_path.chmod(0o755)
+    monkeypatch.setenv("COWORK_BIN", str(bin_path))
+
+    def set_comments(comments):
+        canned.write_text(json.dumps(comments, ensure_ascii=False), encoding="utf-8")
+
+    return set_comments
+
+
+def _c(cid, user, utime):
+    return {"comment_id": cid, "user_id": user, "create_time": utime,
+            "update_time": utime, "content": "x", "quote": "",
+            "reply_count": 0, "is_solved": False, "is_whole": False}
+
+
+def test_poll_filters_owner_and_update_time(tmp_path, fake_cowork, monkeypatch):
+    """owner 过滤 + state update_time 判重，经 subprocess cowork 取数。"""
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    monkeypatch.setattr(poll_comments, "_doc_dir", lambda d: str(tmp_path / d))
+    (tmp_path / "doc1").mkdir()
+    state.upsert(str(tmp_path / "doc1"), "c_done", "done", update_time=100)
+
+    fake_cowork([
+        _c("c_done", "ou_owner", 100),      # 已处理且未变 → 跳过
+        _c("c_edited", "ou_owner", 200),    # 不在 state → 候选
+        _c("c_other", "ou_someone", 300),   # 非 owner → 跳过
+    ])
+    out = poll_comments.find_candidates("doc1", "ou_owner")
+    assert [c["comment_id"] for c in out] == ["c_edited"]
+
+
+def test_poll_edited_comment_reprocesses(tmp_path, fake_cowork, monkeypatch):
+    monkeypatch.setattr(poll_comments, "_doc_dir", lambda d: str(tmp_path / d))
+    (tmp_path / "doc1").mkdir()
+    state.upsert(str(tmp_path / "doc1"), "c_done", "done", update_time=100)
+    fake_cowork([_c("c_done", "ou_owner", 150)])  # update_time 变新 → 重新处理
+    out = poll_comments.find_candidates("doc1", "ou_owner")
+    assert [c["comment_id"] for c in out] == ["c_done"]
 
 
 # ---------- state.py ----------

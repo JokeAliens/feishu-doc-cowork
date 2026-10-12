@@ -45,7 +45,7 @@ lark-cli auth login \
 ### cowork (logic-layer CLI)
 
 ```bash
-uv tool install "git+https://github.com/JokeAliens/feishu-doc-cowork@v1.0.1#subdirectory=core"
+uv tool install "git+https://github.com/JokeAliens/feishu-doc-cowork@v1.0.2#subdirectory=core"
 cowork check-environment      # self-check: login status + scope coverage
 ```
 

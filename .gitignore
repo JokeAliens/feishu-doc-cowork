@@ -3,3 +3,6 @@ __pycache__/
 .venv/
 .superpowers/
 *.egg-info/
+.agents/
+.claude/
+skills-lock.json

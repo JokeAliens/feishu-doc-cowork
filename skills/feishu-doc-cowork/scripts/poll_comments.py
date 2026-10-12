@@ -4,25 +4,40 @@ The agent runs this as a long-lived watcher: it sleeps poll_interval ± jitter
 between polls and prints a JSON array of candidate comments (then exits 0)
 the moment any owner comment is new or was edited since last processed.
 
+Environment contract (v1.0.2): the skill may be installed standalone via
+`npx skills add`, so the only guarantee is the `cowork` executable on PATH
+(README install path). All Feishu access goes through it via subprocess —
+no cowork_core imports (COWORK_BIN env var overrides the binary for tests).
+
 CLI:  python poll_comments.py <doc_id> <owner_id> [interval] [jitter]
 """
 
 import json
 import os
 import random
+import subprocess
 import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from cowork_core.tools.comments import list_comments  # noqa: E402
-import state  # noqa: E402
+import state  # noqa: E402  (same-directory skill script)
+
+
+def _list_comments(doc_id):
+    """`cowork list-comments <doc_id>` via subprocess; returns the parsed array."""
+    binary = os.environ.get("COWORK_BIN", "cowork")
+    proc = subprocess.run([binary, "list-comments", doc_id],
+                          capture_output=True, text=True, timeout=60)
+    if proc.returncode != 0:
+        raise RuntimeError(f"cowork list-comments failed: {proc.stdout.strip()[:300]}")
+    return json.loads(proc.stdout)
 
 
 def find_candidates(doc_id, owner_id):
     st = state.load(_doc_dir(doc_id))
     out = []
-    for c in list_comments(doc_id):
+    for c in _list_comments(doc_id):
         if c["user_id"] != owner_id:
             continue
         entry = st["comments"].get(c["comment_id"])
