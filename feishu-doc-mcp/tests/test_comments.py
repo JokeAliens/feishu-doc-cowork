@@ -126,6 +126,20 @@ def test_reply_comment_content_json(fake_cli):
     assert "c_1" in argv
 
 
+def test_resolve_comment(fake_cli):
+    set_rules, calls = fake_cli
+    set_rules([{
+        "argv_contains": ["drive", "+resolve-comment"],
+        "stdout": {"ok": True, "data": {"is_solved": True}},
+        "exit": 0,
+    }])
+    from feishu_doc_mcp.tools.comments import resolve_comment
+    r = resolve_comment(DOC, "c_1")
+    assert r["is_solved"] is True
+    argv = calls()[0]
+    assert "+resolve-comment" in argv and "c_1" in argv
+
+
 def test_reply_to_solved_comment_maps_error(fake_cli):
     set_rules, _ = fake_cli
     set_rules([{

@@ -53,12 +53,13 @@ description: 当用户要求对指定飞书文档做「评论驱动的 AI 协同
    f. 验证：再次 read_document → doc_after，确认目标改动生效
    g. state upsert done（summary、error=null；commit_sha 暂留空）→ 落盘
    h. git：更新 document.md / block_map.json；
-      has_doc_diff 为 false（空改动）→ 不 commit，回复「内容已符合要求，无需修改」，下一条；
+      has_doc_diff 为 false（空改动）→ 不 commit，回复「内容已符合要求，无需修改」，resolve_comment 后下一条；
       否则 commit_comment（恰好一个 commit，message 模板见下；git add -A 会把 g 的 state.json 一并纳入本评论的 commit）
    i. commit 后 upsert commit_sha
    j. reply_comment("修改完成，使用AI模型：{model_name}， Agent：{agent_name}")
       → 随后重新 get_comment_thread 取**回复后**的最新 update_time 并 upsert 覆盖 state
       （自己的回复会 bump 评论 update_time；不刷新则下一轮 poll 误判 owner 编辑过而无限重处理——2026-10-12 实测确认）
+      → 最后 resolve_comment（标记解决并隐藏，评论闭环；solved 评论不再进入轮询）
    k. 任何异常 → upsert failed（含原因；若 apply_block_operations 抛 PartialApplyError，失败回复必须列出其 applied 列表——「已应用前 N 项（块 x,y），失败于块 z」），回复失败格式（见下），继续下一条
 5. 回到 1
 ```

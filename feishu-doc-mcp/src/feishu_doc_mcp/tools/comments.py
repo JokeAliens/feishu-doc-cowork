@@ -101,6 +101,15 @@ def get_comment_thread(doc_id, comment_id):
     return {"comment": comment, "replies": replies}
 
 
+def resolve_comment(doc_id, comment_id):
+    """Mark a comment solved (resolve & hide). Solved comments disappear
+    from the default poll (is_solved=false), closing the loop."""
+    return unwrap(run_lark_cli([
+        "drive", "+resolve-comment", "--url", doc_id,
+        "--type", "docx", "--comment-id", comment_id,
+    ]))
+
+
 def reply_comment(doc_id, comment_id, content):
     """Reply to a comment as the authorized user (SPEC §5.7)."""
     reply_elements = json.dumps([{"type": "text", "text": content}],

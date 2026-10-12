@@ -8,7 +8,7 @@ from feishu_doc_mcp.server import mcp
 EXPECTED_TOOLS = {
     "check_environment", "get_doc_info", "read_document",
     "list_comments", "get_comment_thread", "apply_block_operations",
-    "reply_comment",
+    "reply_comment", "resolve_comment",
 }
 
 

@@ -9,7 +9,7 @@ FastMCP 薄封装层：把 lark-cli 调用包装成结构化 MCP 工具（SPEC �
 - 错误统一返回 `{"error": {"code", "message", "lark_code", "hint"}}`（`hint` 透传 lark-cli，供 agent 自修复），不向客户端抛栈。
 - 环境变量：`LARK_CLI_BIN`（默认 `lark-cli`）、`LARK_CLI_BIN_ARGS`（测试注入用）。
 
-## 工具（恰 7 个，SPEC §5.8 之外一概不提供）
+## 工具（恰 8 个，SPEC §5.8 之外一概不提供）
 
 ### `check_environment() -> dict`
 
@@ -54,6 +54,10 @@ block_map 行号指向生成的 markdown（1 基），可逆寻址；表格单�
 | `update_board` | `whiteboard_token, dsl` | `whiteboard +update`（无 `--overwrite`）；不支持图元 → result 标 `BOARD_UNSUPPORTED` |
 
 红线（代码强制）：op 类型白名单，拒绝任何 overwrite/append 语义；写请求数 == 展开后原子写单元数（无全量重建路径）。
+
+### `resolve_comment(doc_id: str, comment_id: str) -> dict`
+
+`drive +resolve-comment`，将评论标记解决并隐藏；solved 评论不再进入默认轮询，处理闭环。
 
 ### `reply_comment(doc_id: str, comment_id: str, content: str) -> dict`
 

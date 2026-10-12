@@ -18,6 +18,7 @@ from .tools.comments import (
     get_comment_thread as _get_comment_thread,
     list_comments as _list_comments,
     reply_comment as _reply_comment,
+    resolve_comment as _resolve_comment,
 )
 from .tools.doc_info import get_doc_info as _get_doc_info
 from .tools.environment import check_environment as _check_environment
@@ -81,6 +82,12 @@ def apply_block_operations(doc_id: str, operations: list,
 def reply_comment(doc_id: str, comment_id: str, content: str) -> dict:
     """以用户身份回复评论（SPEC §5.7）。"""
     return _serialize_errors(_reply_comment)(doc_id, comment_id, content)
+
+
+@mcp.tool(name="resolve_comment")
+def resolve_comment(doc_id: str, comment_id: str) -> dict:
+    """将评论标记为解决（resolve & hide），处理闭环后调用。"""
+    return _serialize_errors(_resolve_comment)(doc_id, comment_id)
 
 
 def main():

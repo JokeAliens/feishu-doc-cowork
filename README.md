@@ -30,6 +30,7 @@ lark-cli config init          # 按提示绑定应用
 lark-cli auth login \
   --scope "docs:document.comment:read" \
   --scope "docs:document.comment:create" \
+  --scope "docs:document.comment:update" \
   --scope "drive:drive.metadata:readonly" \
   --scope "docx:document:readonly" \
   --scope "docx:document" \
@@ -57,6 +58,7 @@ MCP client 配置（stdio）：command = `feishu-doc-mcp`（或 `uv run --direct
 | --- | --- | --- |
 | `docs:document.comment:read` | 读评论 | `lark-cli schema drive.file.comments.list` |
 | `docs:document.comment:create` | 回复评论 | `lark-cli schema drive.file.comment.replys.create` |
+| `docs:document.comment:update` | 解决（resolve）评论 | `lark-cli schema drive.file.comments.patch` |
 | `drive:drive.metadata:readonly` | 文件元信息（owner） | `lark-cli schema drive.metas.batch_query` |
 | `docx:document:readonly` | 读文档块 | `lark-cli auth check --scope "..."` |
 | `docx:document` | 块级写文档 | 同上 |
