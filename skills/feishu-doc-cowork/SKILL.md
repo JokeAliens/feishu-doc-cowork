@@ -20,6 +20,19 @@ description: 当用户要求对指定飞书文档做「评论驱动的 AI 协同
 
 ## 启动流程
 
+0. **cowork 前置检查（强制，第一步）**：`command -v cowork` 检测逻辑层是否已安装。
+   - 已安装 → 继续步骤 1。
+   - 未安装 → **先按 README 安装**：
+     a. 确认 uv 存在（`uv --version`）；没有 uv → 转下方「终止与引导」；
+     b. `uv tool install "git+https://github.com/JokeAliens/feishu-doc-cowork#subdirectory=core"`；
+     c. 安装后 `cowork check-environment` 验证可执行。
+   - **无法访问 GitHub 或安装失败 → 主动终止运行**，不得带着缺失的 cowork 进入后续步骤。终止时向用户输出引导：
+     > cowork（逻辑层 CLI）未安装且自动安装失败（{失败原因，如 GitHub 不可达}）。
+     > 请手动完成前置安装后重新启动本 skill：
+     > 1. 安装 uv：`curl -LsSf https://astral.sh/uv/install.sh | sh`
+     > 2. 安装 lark-cli：`npm install -g @larksuite/cli` 并 `lark-cli config init`
+     > 3. 安装 cowork：`uv tool install "git+https://github.com/JokeAliens/feishu-doc-cowork#subdirectory=core"`（网络受限时：clone 仓库后 `uv tool install ./core`）
+     > 4. 精确授权：见 skills/feishu-doc-cowork/references/scope-checklist.md
 1. 读配置 `~/.cache/feishu-doc-cowork/config.yaml`；不存在 → 运行 `python scripts/config_init.py` 创建（默认值即可用，无需手改）。配置非法 → 报错退出。
    - **model_name / agent_name 不在配置中**：由署名探测步骤（见第 10 步）产生并落盘 state.json，回复/commit 时从 state.json 读取。
 2. `cowork check-environment`：
