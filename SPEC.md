@@ -43,7 +43,7 @@
 | D3 | 鉴权 | **lark-cli OAuth 用户身份**（`lark-cli auth login`），凭证存 OS 钥匙串（lark-cli 内建），DPoP 保持默认 `preferred` | 最小权限 + 不碰 app_secret；评论/修改以用户本人身份发出，天然可审计 |
 | D4 | 最小权限 | 逐个 scope 精确授权：`lark-cli auth login --scope "xxx"`，**禁用 `--recommend`**；启动时用 `lark-cli auth check` 校验；scope 清单用 `lark-cli schema <method>` 实测确认 | 用户明确要求权限尽量少 |
 | D5 | 评论监听 | 纯轮询评论 API，默认间隔 10s ± 20% 抖动 | 用户指定；抖动避免限流误判 |
-| D6 | 「文档作者」判定 | 取文档 owner（文件元信息 `owner_id`），与评论者 user_id 比对 | 用户指定 |
+| D6 | 「文档作者」判定 | 取文档 owner（文件元信息 `owner_id`），与评论者 user_id 比对。**v1.0.4 扩展**：他人评论若 owner 在线程中回复过（背书），等同 owner 评论进入处理 | 用户指定 |
 | D7 | 修改粒度 | 一律走 docx/v1 块级 API（经 lark-cli Raw API / API Commands 层），**禁止** `docs +update --markdown` 类全量覆盖命令出现在任何写路径 | 原始需求核心 |
 | D8 | 能力范围 | 正文块级编辑 + 表格（行列增删、单元格更新）+ **画板（lark-whiteboard DSL 渲染）** | 用户指定；画板能力由 lark-cli 提供 |
 | D9 | git 版本目录 | `~/.cache/feishu-doc-cowork/{doc_id}/`，启动时 `git init`（已存在则复用） | 原始需求 |
@@ -247,7 +247,7 @@ for scope in <最终清单>: lark-cli auth check $scope   # 每个 scope exit 0�
   4. 对每条候选评论，串行执行（严禁并行，见 §8）：
      a. 标记 processing，落盘 state.json
      b. get_comment_thread → LLM 意图判定：
-        - 「修改要求」→ 继续
+        - 「修改要求」→ **立即回复「收到，正在确认修改方案。」**（v1.0.4：用户第一时间感知评论已接收），然后继续
         - 「提问/讨论/闲聊/超范围」→ 标记 skipped，落盘，不回复，下一条
      c. 快照：read_document → doc_before.md（记录 revision_id）
      d. 规划：基于 markdown + block_map 生成 operations（块级最小修改）

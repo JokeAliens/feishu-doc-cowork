@@ -45,6 +45,19 @@ def _c(cid, user, utime):
             "reply_count": 0, "is_solved": False, "is_whole": False}
 
 
+def test_poll_owner_reply_endorses_others_comment(tmp_path, fake_cowork, monkeypatch):
+    """v1.0.4 特性 2：他人评论若 owner 在回复中出现 → 视为 owner 评论进入候选。"""
+    monkeypatch.setattr(poll_comments, "_doc_dir", lambda d: str(tmp_path / d))
+    (tmp_path / "doc1").mkdir()
+    endorsed = _c("c_endorsed", "ou_someone", 300)
+    endorsed["replier_ids"] = ["ou_someone", "ou_owner"]     # owner 回复过
+    plain_other = _c("c_plain", "ou_someone2", 400)
+    plain_other["replier_ids"] = ["ou_someone2"]             # owner 未回复
+    fake_cowork([endorsed, plain_other])
+    out = poll_comments.find_candidates("doc1", "ou_owner")
+    assert [c["comment_id"] for c in out] == ["c_endorsed"]
+
+
 def test_poll_filters_owner_and_update_time(tmp_path, fake_cowork, monkeypatch):
     """owner 过滤 + state update_time 判重，经 subprocess cowork 取数。"""
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))

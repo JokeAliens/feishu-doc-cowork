@@ -30,8 +30,8 @@ block_map 行号指向生成的 markdown（1 基），可逆寻址；表格单�
 ### `cowork list-comments <doc_id> [--solved]`
 
 `drive +list-comments`，`--page-token` 自动翻页。出参按 create_time 升序：
-`[{comment_id, user_id, create_time, update_time, content, quote, reply_count, is_solved, is_whole}]`。
-评论正文取自 `reply_list.replies` 中 create_time 最早的一条（真实 API 形状，2026-10-12 校准）。
+`[{comment_id, user_id, create_time, update_time, content, quote, reply_count, replier_ids, is_solved, is_whole}]`。
+评论正文取自 `reply_list.replies` 中 create_time 最早的一条（真实 API 形状，2026-10-12 校准）。`replier_ids` 为线程全部参与者的 user_id 列表，供调用方判断「owner 回复背书」（replier_ids 含 owner_id → 等同 owner 评论）。
 
 ### `cowork get-comment-thread <doc_id> <comment_id>`
 

@@ -38,7 +38,8 @@ def find_candidates(doc_id, owner_id):
     st = state.load(_doc_dir(doc_id))
     out = []
     for c in _list_comments(doc_id):
-        if c["user_id"] != owner_id:
+        # owner 本人的评论，或 owner 回复过（背书）的他人评论
+        if c["user_id"] != owner_id and owner_id not in c.get("replier_ids", []):
             continue
         entry = st["comments"].get(c["comment_id"])
         if entry is None or entry.get("update_time", 0) < c["update_time"]:

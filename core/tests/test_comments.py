@@ -4,7 +4,7 @@ import pytest
 
 from cowork_core.errors import LarkApiError
 from cowork_core.tools.comments import (
-    get_comment_thread, list_comments, reply_comment,
+    _normalize_comment, get_comment_thread, list_comments, reply_comment,
 )
 
 DOC = "Z1FjAbCdEf1234"
@@ -60,6 +60,21 @@ def test_comment_body_is_earliest_reply_regardless_of_order():
     n = _normalize_comment(item2)
     assert n["content"] == "评论正文"
     assert n["reply_count"] == 1
+
+
+def test_replier_ids_collected_for_owner_endorsement():
+    """v1.0.4 特性 2：他人评论 + owner 回复 → replier_ids 含 owner，
+    poll 层据此把该评论视为 owner 背书。"""
+    item = _comment("c_7", "ou_someone", 100, 200, "A段格式异常", replies=1)
+    # owner 的回复「收到」
+    item["reply_list"]["replies"].append({
+        "content": {"elements": [{"type": "text_run", "text_run": {"text": "收到"}}]},
+        "reply_id": "c_7_r_owner", "user_id": "ou_owner",
+        "create_time": 150, "update_time": 150})
+    n = _normalize_comment(item)
+    assert n["user_id"] == "ou_someone"
+    assert "ou_owner" in n["replier_ids"]
+    assert "ou_someone" in n["replier_ids"]
 
 
 def test_list_comments_paginates_and_normalizes(fake_cli):

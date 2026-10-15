@@ -42,6 +42,9 @@ def _normalize_comment(item):
         "content": _text_from_elements(item.get("content") or first.get("content")),
         "quote": item.get("quote") or "",
         "reply_count": max(len(replies) - 1, 0),
+        # all participant ids (incl. comment author): lets the poll layer
+        # treat a comment as owner-endorsed when the owner replied (v1.0.4)
+        "replier_ids": [r.get("user_id") for r in replies if r.get("user_id")],
         "is_solved": bool(item.get("is_solved")),
         "is_whole": bool(item.get("is_whole")),
     }

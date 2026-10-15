@@ -46,7 +46,7 @@ description: 当用户要求对指定飞书文档做「评论驱动的 AI 协同
 8. `python scripts/state.py {doc_dir} reset-processing`（崩溃恢复：processing → pending，重处理前必须重新 read_document + 重新规划，禁止复用旧 operations）。
 9. **监听确认（强制，不得跳过）**：启动完成后、进入主循环前，必须向用户明确输出并确认：
    > 启动完成：文档《{title}》（{doc_id}），基线 revision {n}，备份已存（保留 3 份）。
-   > 我将开始**常驻轮询监听**该文档的评论（每 {poll_interval_sec}s，仅处理你的评论，修改类评论会直接改文档并回复）。确认开始监听吗？
+   > 我将开始**常驻轮询监听**该文档的评论（每 {poll_interval_sec}s，仅处理你的评论或你回复背书过的评论，修改类评论会直接改文档并回复）。确认开始监听吗？
 
    用户确认 → 进入主循环并启动 watcher；用户拒绝/要求调整 → 按用户指示，**不得**自行开始监听。若宿主不支持交互提问，则以显著消息声明上述内容后直接开始，并在首条回复中再次声明监听状态。
 10. **署名探测（每次启动/重启 watcher 必做）**：用户确认监听后，立即自问「**我当前运行的是什么模型**」——依据当前这轮上下文中的模型标识（如系统提示的 `Model:` 字段）作答，agent_name 取当前 agent 框架名。将答案写入 state.json：
@@ -64,13 +64,13 @@ description: 当用户要求对指定飞书文档做「评论驱动的 AI 协同
 ```
 1. watcher 发现候选评论（poll_comments.py 每 poll_interval ± jitter 轮询一次）
 2. 过滤（已在 poll_comments.py 内完成）：
-   a. user_id == owner_id（非 owner 一律跳过）
+   a. 只处理 owner 评论：**`user_id == owner_id`，或 owner 在该评论线程中回复过（replier_ids 含 owner_id，视为 owner 背书，等同 owner 评论）**。例：他人评论「A段格式异常」+ owner 回复「收到」→ 进入处理。
    b. comment_id 不在 state.json，或 state.update_time < 评论当前 update_time
       （owner 编辑过已处理评论 → 视为新需求重新处理）
 3. 对每条候选评论，串行执行：
    a. state upsert processing（落盘）
    b. `cowork get-comment-thread` → 按 references/intent-prompt.md 判定：
-      - EDIT_REQUEST → 继续
+      - EDIT_REQUEST → **立即先回复确认**：`cowork reply <doc_id> <comment_id> "收到，正在确认修改方案。"`（让用户第一时间感知评论已被接收），然后继续 c
       - QUESTION_OR_DISCUSS / OUT_OF_SCOPE → upsert skipped，不回复，下一条
    c. 快照：`cowork read-document` → 保存 doc_before（记录 revision_id）
    d. 规划：基于 markdown + block_map 生成块级最小 operations

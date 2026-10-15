@@ -1,6 +1,6 @@
 [project]
 name = "feishu-doc-cowork-core"
-version = "0.2.1"
+version = "0.2.2"
 description = "lark-cli-based logic layer + CLI for Feishu docx comment-driven cowork editing"
 requires-python = ">=3.11"
 dependencies = []
